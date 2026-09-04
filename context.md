@@ -56,7 +56,7 @@
 | Layer | Choice | Reason | Status |
 |---|---|---|---|
 | Edge AI target | Jetson Nano 4GB | Chosen by team, hardware category PS | Confirmed, not yet in hand |
-| Dev machine | Win 11, RTX 5060 Laptop 8GB, Py 3.13.9, Node 24, Docker 29 | Local GPU makes YOLO training feasible without cloud | Confirmed 2026-09-04 |
+| Dev machine | Win 11, RTX 5060 Laptop 8GB, Py 3.13.9, Node 24 (no Docker/WSL) | Local GPU makes YOLO training feasible without cloud | Confirmed 2026-09-04 |
 | Vision model | YOLOv8-nano (ultralytics) → ONNX export | ONNX is the exact handoff path to TensorRT on Nano; nano fits 4GB | Decided 2026-09-04 |
 | Messaging | MQTT via **amqtt** (pure Python) | ~~Mosquitto in Docker~~ — Docker Desktop needs WSL2, not installed, costs admin + reboot. amqtt keeps `pip install -r requirements.txt` as the entire setup. Same protocol/topics/payloads. | **Verified working 2026-09-04** |
 | Time-series store | SQLite (WAL mode) | Demo-scale data; InfluxDB adds an ops surface for zero demo benefit. Swap path documented in docs/ | Decided 2026-09-04 |
@@ -100,11 +100,13 @@
 
 - **2026-09-04 — Vision service runs ONNX, not the CUDA `.pt`, and it is measurably faster.** Benchmarked on 40 pre-loaded test frames: **ONNX 61.8 img/s vs CUDA .pt 30.4 img/s**. YOLOv8n at 640px is small enough that CUDA's per-call transfer/sync overhead outweighs its compute advantage on single frames. This also means the demo exercises the exact artifact that ships to the Nano. An auto-selecting dual-backend was built and then deleted once measured — it solved a problem that did not exist.
 - **2026-09-04 — MEASURE BEFORE OPTIMISING (recorded because it nearly cost us).** An early benchmark showed ONNX at ~7 img/s and triggered an onnxruntime-gpu install that corrupted numpy. That benchmark did a `cv2.imread` per image: it was measuring **disk, not inference**. Real figure is 61.8 img/s.
-- **2026-09-04 — `vision/paths.py::_yolo_path` exists because of the apostrophe in `SIH'26`.** ultralytics strips apostrophes from absolute `.pt` paths and then fails with FileNotFoundError on `SIH26\...`; `torch.load` and `check_file` handle the same path fine, so the bug is inside ultralytics' `.pt` loader. A cwd-relative path avoids it. **Latent hazard: expect the apostrophe to bite again in npm/Next.js tooling at the dashboard stage.**
+- ~~**2026-09-04 — `_yolo_path` exists because of the apostrophe in `SIH'26`.**~~ **SUPERSEDED 2026-09-04 by the folder rename to `beltguard`; workaround deleted.** Original entry: ultralytics strips apostrophes from absolute `.pt` paths and then fails with FileNotFoundError on `SIH26\...`; `torch.load` and `check_file` handle the same path fine, so the bug is inside ultralytics' `.pt` loader. A cwd-relative path avoids it. **Latent hazard: expect the apostrophe to bite again in npm/Next.js tooling at the dashboard stage.**
 
 - **2026-09-04 — CWRU evaluated by held-out OPERATING CONDITION, not a random window split.** A random split over windows cut from one continuous recording puts near-duplicate slices in train and test, which is the standard way CWRU results get inflated. We train on 0/1/2 hp and test only on the unseen 3 hp. Both numbers are printed. **They came out identical (100% / 100%, gap 0.0)** — the leakage concern was real but did not materialise here. The honest caveat is different: CWRU's seeded 0.007in defects are large and distinct (separable on kurtosis alone, normal ~2.9 vs outer_race ~7.8), so 100% reflects an easy benchmark, not a strong model. Real idler wear is gradual and messier.
 - **2026-09-04 — RUL is degradation-trend extrapolation, and is labelled as such everywhere.** Not a learned RUL model — that needs run-to-failure history for *this* asset class, which nobody has for a conveyor splice. Trend extrapolation is what condition-monitoring practice actually uses when you have a health indicator and no failure history. It refuses to answer on a flat trend, reports a confidence interval rather than a point estimate, and fits only a recent window because degradation accelerates.
 - **2026-09-04 — `DEMO_ACCELERATION` makes the compressed timeline explicit.** The scenario ramps a full healthy->rupture failure in 45 simulated minutes so a demo is watchable; a real splice takes 2-4 weeks. The constant (672x) is applied to the *fault ramp only* — belt revolutions, thermal lag and bearing defect frequencies still run at real rates — and RUL reports the real-world equivalent alongside sim time so nobody infers that belts fail in an afternoon.
+
+- **2026-09-04 — Project renamed `SIH'26` -> `beltguard`; product name BeltGuard.** The apostrophe was not cosmetic: it broke ultralytics `.pt` loading outright, and npm/Next.js were the next likely victims. Renaming was the root-cause fix rather than accumulating per-tool workarounds. Backend also moved off port 8000 (owned by another local project) to **8010**.
 
 ## 8. Known Blockers / Open Questions
 
@@ -127,14 +129,14 @@
 - **Roboflow dataset pages return HTTP 403 to automated fetch.** Exact image counts, class lists and licenses must be confirmed via the Roboflow API (needs a free API key) or a manual browser check before a dataset is committed to.
 - ~~Docker Desktop is installed but was not running.~~ **RESOLVED 2026-09-04** — root cause was that **WSL2 is not installed**, which Docker Desktop's Linux engine requires; it launched and died silently. Rather than spend an admin install + reboot on one broker, switched to amqtt. Full round-trip now verified: 260 msgs across all 5 sensor kinds, `simulated` flag intact on the wire.
 - ~~The project lives on OneDrive, which is measurably slowing training.~~ **RESOLVED 2026-09-04** — heavy artifacts relocated to `%LOCALAPPDATA%\sih26\` (see decision log). Image read 3.3 -> 38.9 MB/s, epoch time ~80 s -> 23.8 s, full run ~2.5 h -> ~60 min. Ultralytics still prints its slow-access warning (its threshold is aggressive) but the bottleneck is gone.
-- **The apostrophe in the folder name `SIH'26` is a live hazard.** It already broke ultralytics `.pt` loading (worked around, not eliminated). npm, Next.js and shell tooling are all plausible next victims. Renaming the folder to `SIH26` is the root-cause fix — deferred because it disrupts the running session, but recommended before the dashboard stage.
+- ~~The apostrophe in the folder name is a live hazard.~~ **RESOLVED 2026-09-04** — user renamed `SIH'26` -> **`beltguard`**. Verified after the move: venv intact, CUDA still available, and absolute `.pt` paths load correctly, so the `_yolo_path` workaround was deleted as dead code. Full suite re-run green in the new location.
 - **onnxruntime CUDA EP does not load** on this machine (ORT 1.29 moved it to a separate plugin package). Irrelevant in practice — ONNX on CPU is already faster than the CUDA `.pt` here, and the Nano will use TensorRT, not onnxruntime.
 - **No physical hardware.** Standing constraint, not a blocker for this phase.
 
 ## 9. File/Folder Structure
 
 ```
-SIH'26/
+beltguard/
 ├── context.md          # this file — project memory
 ├── vision/             # defect detection: dataset prep, training, ONNX export, webcam demo
 │   ├── paths.py        # resolves heavy-artifact locations (see decision log)

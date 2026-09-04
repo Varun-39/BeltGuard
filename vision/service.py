@@ -107,28 +107,13 @@ def _frames(source: str, loop: bool):
     cap.release()
 
 
-def _yolo_path(p: Path) -> str:
-    """Path string safe to hand to ultralytics.
-
-    This project lives under a directory containing an apostrophe (SIH'26), and
-    ultralytics strips apostrophes from absolute .pt paths -- it goes looking for
-    "SIH26\\..." and raises FileNotFoundError. torch.load and check_file both
-    handle the path fine, so the bug is in ultralytics' own .pt loading only.
-    A cwd-relative path avoids it entirely.
-    """
-    try:
-        return str(p.relative_to(Path.cwd()))
-    except ValueError:
-        return str(p)          # different drive/root: nothing to shorten
-
-
 def _load_model():
     from ultralytics import YOLO
 
     onnx = MODELS / "belt_defect.onnx"
     if not onnx.exists():
         raise SystemExit(f"missing {onnx} -- run vision/scripts/train.py first")
-    return YOLO(_yolo_path(onnx), task="detect"), "ONNX Runtime"
+    return YOLO(str(onnx), task="detect"), "ONNX Runtime"
 
 
 def run(source: str, loop: bool, publish: bool) -> None:
