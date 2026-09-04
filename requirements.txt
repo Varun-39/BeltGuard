@@ -2,10 +2,14 @@
 #
 # NOTE: torch/torchvision are pinned to the CUDA 12.8 build, which is NOT on
 # PyPI. Blackwell GPUs (RTX 50-series, sm_120) require cu128 or newer. Install
-# those two first:
+# those two FIRST:
 #   pip install torch==2.11.0 torchvision==0.26.0 --index-url https://download.pytorch.org/whl/cu128
-# CPU-only machines can drop the +cu128 suffix and use plain PyPI, but training
-# will be roughly 20x slower.
+# CPU-only machines can drop the +cu128 suffix and use plain PyPI. Training is
+# ~20x slower there; inference runs on ONNX and is unaffected.
+#
+# numpy is pinned deliberately: installing onnxruntime-gpu unpinned pulled a
+# second numpy over the top of the first, leaving a half-and-half install that
+# broke `import numpy` outright.
 #
 # No Docker and no WSL required -- the MQTT broker (amqtt) is pure Python.
 
@@ -15,7 +19,8 @@ anyio==4.15.0
 fastapi==0.141.1
 numpy==2.3.5
 onnx==1.22.0
-onnxruntime==1.29.0
+onnxruntime-gpu==1.29.0
+opencv-python==5.0.0.93
 paho-mqtt==2.1.0
 python-dotenv==1.2.3
 roboflow==1.4.2
@@ -23,3 +28,4 @@ torch==2.11.0+cu128
 torchvision==0.26.0+cu128
 ultralytics==8.4.138
 uvicorn==0.52.4
+websockets==15.0.1

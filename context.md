@@ -40,7 +40,8 @@
 - [x] **Vision defect-detection model** — YOLOv8n trained 120 epochs (57 min, RTX 5060). Test mAP50 **0.976** overall. `belt_defect.pt` (6.3 MB) + `belt_defect.onnx` (12.3 MB) in `vision/models/`. **Caveat: belt_joint validated on only 7 test instances — see blockers.**
 - [x] **Simulated sensor data generator** — 5 sensors on one shared `BeltModel`; 7 physics self-checks passing
 - [x] **MQTT pipeline** — amqtt broker + scenario publisher + subscriber round-trip verified end-to-end (`infra/test_mqtt_roundtrip.py`)
-- [ ] Backend API + time-series storage
+- [x] **Backend API + SQLite time-series store** — MQTT ingest, 2 Hz fusion/broadcast, REST + WebSocket; full-stack test passing
+- [x] **Vision service** — ONNX inference, MJPEG stream, publishes detections to the same MQTT bus
 - [x] **Sensor fusion / health scoring** — explainable rule engine, 7 end-to-end checks passing incl. correct causal attribution
 - [ ] Predictive/anomaly detection model (using public bearing/vibration datasets as stand-ins, e.g. NASA/CWRU bearing datasets)
 - [ ] Real-time dashboard (live simulated data + live webcam-based vision demo)
@@ -97,6 +98,10 @@
 
 - **2026-09-04 — Heavy vision artifacts live outside the repo, at `%LOCALAPPDATA%\sih26\`.** The project sits under OneDrive, and OneDrive syncs by folder tree — it does not read `.gitignore`. A 141 MB dataset plus per-epoch checkpoints were being re-uploaded continuously, burning quota and bandwidth *and* throttling training. `%LOCALAPPDATA%` is never synced and is the conventional Windows home for regenerable data — and this data is regenerable, `prepare_dataset.py` re-downloads it. Resolved from the environment (not hardcoded to this user) via `vision/paths.py`, overridable with `SIH_DATA_DIR`. Final `.pt`/`.onnx` stay in the repo: small, and worth having backed up. Measured effect: 3.4x faster training.
 
+- **2026-09-04 — Vision service runs ONNX, not the CUDA `.pt`, and it is measurably faster.** Benchmarked on 40 pre-loaded test frames: **ONNX 61.8 img/s vs CUDA .pt 30.4 img/s**. YOLOv8n at 640px is small enough that CUDA's per-call transfer/sync overhead outweighs its compute advantage on single frames. This also means the demo exercises the exact artifact that ships to the Nano. An auto-selecting dual-backend was built and then deleted once measured — it solved a problem that did not exist.
+- **2026-09-04 — MEASURE BEFORE OPTIMISING (recorded because it nearly cost us).** An early benchmark showed ONNX at ~7 img/s and triggered an onnxruntime-gpu install that corrupted numpy. That benchmark did a `cv2.imread` per image: it was measuring **disk, not inference**. Real figure is 61.8 img/s.
+- **2026-09-04 — `vision/paths.py::_yolo_path` exists because of the apostrophe in `SIH'26`.** ultralytics strips apostrophes from absolute `.pt` paths and then fails with FileNotFoundError on `SIH26\...`; `torch.load` and `check_file` handle the same path fine, so the bug is inside ultralytics' `.pt` loader. A cwd-relative path avoids it. **Latent hazard: expect the apostrophe to bite again in npm/Next.js tooling at the dashboard stage.**
+
 ## 8. Known Blockers / Open Questions
 
 - **RESULT 2026-09-04 — trained model, and the honest reading of it.** 120 epochs, 57 min. Per-class on the held-out test split:
@@ -118,6 +123,8 @@
 - **Roboflow dataset pages return HTTP 403 to automated fetch.** Exact image counts, class lists and licenses must be confirmed via the Roboflow API (needs a free API key) or a manual browser check before a dataset is committed to.
 - ~~Docker Desktop is installed but was not running.~~ **RESOLVED 2026-09-04** — root cause was that **WSL2 is not installed**, which Docker Desktop's Linux engine requires; it launched and died silently. Rather than spend an admin install + reboot on one broker, switched to amqtt. Full round-trip now verified: 260 msgs across all 5 sensor kinds, `simulated` flag intact on the wire.
 - ~~The project lives on OneDrive, which is measurably slowing training.~~ **RESOLVED 2026-09-04** — heavy artifacts relocated to `%LOCALAPPDATA%\sih26\` (see decision log). Image read 3.3 -> 38.9 MB/s, epoch time ~80 s -> 23.8 s, full run ~2.5 h -> ~60 min. Ultralytics still prints its slow-access warning (its threshold is aggressive) but the bottleneck is gone.
+- **The apostrophe in the folder name `SIH'26` is a live hazard.** It already broke ultralytics `.pt` loading (worked around, not eliminated). npm, Next.js and shell tooling are all plausible next victims. Renaming the folder to `SIH26` is the root-cause fix — deferred because it disrupts the running session, but recommended before the dashboard stage.
+- **onnxruntime CUDA EP does not load** on this machine (ORT 1.29 moved it to a separate plugin package). Irrelevant in practice — ONNX on CPU is already faster than the CUDA `.pt` here, and the Nano will use TensorRT, not onnxruntime.
 - **No physical hardware.** Standing constraint, not a blocker for this phase.
 
 ## 9. File/Folder Structure
