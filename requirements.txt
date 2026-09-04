@@ -1,0 +1,25 @@
+# Install:  pip install -r requirements.txt
+#
+# NOTE: torch/torchvision are pinned to the CUDA 12.8 build, which is NOT on
+# PyPI. Blackwell GPUs (RTX 50-series, sm_120) require cu128 or newer. Install
+# those two first:
+#   pip install torch==2.11.0 torchvision==0.26.0 --index-url https://download.pytorch.org/whl/cu128
+# CPU-only machines can drop the +cu128 suffix and use plain PyPI, but training
+# will be roughly 20x slower.
+#
+# No Docker and no WSL required -- the MQTT broker (amqtt) is pure Python.
+
+PyYAML==6.0.3
+amqtt==0.12.0
+anyio==4.15.0
+fastapi==0.141.1
+numpy==2.3.5
+onnx==1.22.0
+onnxruntime==1.29.0
+paho-mqtt==2.1.0
+python-dotenv==1.2.3
+roboflow==1.4.2
+torch==2.11.0+cu128
+torchvision==0.26.0+cu128
+ultralytics==8.4.138
+uvicorn==0.52.4

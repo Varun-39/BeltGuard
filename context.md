@@ -39,7 +39,7 @@
 
 - [x] **Vision defect-detection model** — YOLOv8n trained 120 epochs (57 min, RTX 5060). Test mAP50 **0.976** overall. `belt_defect.pt` (6.3 MB) + `belt_defect.onnx` (12.3 MB) in `vision/models/`. **Caveat: belt_joint validated on only 7 test instances — see blockers.**
 - [x] **Simulated sensor data generator** — 5 sensors on one shared `BeltModel`; 7 physics self-checks passing
-- [~] MQTT pipeline — publisher + scenario runner written and dry-run verified; **broker not yet started (Docker Desktop was not running)**; subscriber not written
+- [x] **MQTT pipeline** — amqtt broker + scenario publisher + subscriber round-trip verified end-to-end (`infra/test_mqtt_roundtrip.py`)
 - [ ] Backend API + time-series storage
 - [x] **Sensor fusion / health scoring** — explainable rule engine, 7 end-to-end checks passing incl. correct causal attribution
 - [ ] Predictive/anomaly detection model (using public bearing/vibration datasets as stand-ins, e.g. NASA/CWRU bearing datasets)
@@ -57,7 +57,7 @@
 | Edge AI target | Jetson Nano 4GB | Chosen by team, hardware category PS | Confirmed, not yet in hand |
 | Dev machine | Win 11, RTX 5060 Laptop 8GB, Py 3.13.9, Node 24, Docker 29 | Local GPU makes YOLO training feasible without cloud | Confirmed 2026-09-04 |
 | Vision model | YOLOv8-nano (ultralytics) → ONNX export | ONNX is the exact handoff path to TensorRT on Nano; nano fits 4GB | Decided 2026-09-04 |
-| Messaging | MQTT (Mosquitto in Docker) | Real protocol a Jetson would publish on; sim + real sensors share one bus | Decided 2026-09-04 |
+| Messaging | MQTT via **amqtt** (pure Python) | ~~Mosquitto in Docker~~ — Docker Desktop needs WSL2, not installed, costs admin + reboot. amqtt keeps `pip install -r requirements.txt` as the entire setup. Same protocol/topics/payloads. | **Verified working 2026-09-04** |
 | Time-series store | SQLite (WAL mode) | Demo-scale data; InfluxDB adds an ops surface for zero demo benefit. Swap path documented in docs/ | Decided 2026-09-04 |
 | Backend | FastAPI + WebSocket push | Async, fast, WS gives the dashboard live streaming without polling | Decided 2026-09-04 |
 | Dashboard | Next.js + Tailwind + shadcn/ui + Recharts + Motion | Custom UI needed to clear the "not another Grafana screenshot" bar | Decided 2026-09-04 |
@@ -113,10 +113,10 @@
   **Leakage was checked and is clean:** 0 shared source images between train/valid/test (Roboflow split before augmenting; all 489 augmented variants stay inside train). So the other classes' scores are trustworthy.
   Splits hold belt_joint 60/14/7 (train/valid/test) — the class is scarce everywhere, not just at test time.
 - **`Belt Joint` has only 41 labelled instances** across all datasets found. This is the single most important class for PS 26008 and it is the rarest. Mitigation plan: heavy augmentation, class-weighted loss, and honest reporting of per-class recall rather than a flattering overall mAP. May need hand-labelling a top-up set.
-- **`ui-ux-pro-max-skill` is NOT available in this environment.** Confirmed: absent from the session skill roster, and a plugin-catalog search returned zero results. Installing it needs `/plugin marketplace add nextlevelbuilder/ui-ux-pro-max-skill` from an **interactive `claude` terminal** — the desktop Code tab cannot run plugin dialogs. Until then the design-quality bar is enforced via the `frontend-design` and `design:*` skills instead. **Flagged to user, not silently skipped.**
+- ~~`ui-ux-pro-max-skill` is NOT available.~~ **RESOLVED 2026-09-04** — user installed it from an interactive terminal. `ui-ux-pro-max:*` skills now in the roster (design, design-system, ui-styling, slides, banner-design). Use for the dashboard stage.
 - **PyTorch installed is `2.11.0+cpu`** while the machine has an RTX 5060 (Blackwell, sm_120). GPU training needs a CUDA 12.8+ build (~2.5 GB download). Awaiting user go-ahead.
 - **Roboflow dataset pages return HTTP 403 to automated fetch.** Exact image counts, class lists and licenses must be confirmed via the Roboflow API (needs a free API key) or a manual browser check before a dataset is committed to.
-- **Docker Desktop is installed but was not running**, so the Mosquitto broker has never been started and the MQTT path is verified only in `--dry-run`. Needs Docker Desktop launched, then `docker compose up -d`.
+- ~~Docker Desktop is installed but was not running.~~ **RESOLVED 2026-09-04** — root cause was that **WSL2 is not installed**, which Docker Desktop's Linux engine requires; it launched and died silently. Rather than spend an admin install + reboot on one broker, switched to amqtt. Full round-trip now verified: 260 msgs across all 5 sensor kinds, `simulated` flag intact on the wire.
 - ~~The project lives on OneDrive, which is measurably slowing training.~~ **RESOLVED 2026-09-04** — heavy artifacts relocated to `%LOCALAPPDATA%\sih26\` (see decision log). Image read 3.3 -> 38.9 MB/s, epoch time ~80 s -> 23.8 s, full run ~2.5 h -> ~60 min. Ultralytics still prints its slow-access warning (its threshold is aggressive) but the bottleneck is gone.
 - **No physical hardware.** Standing constraint, not a blocker for this phase.
 
@@ -131,8 +131,8 @@ SIH'26/
 │   └── scripts/        # prepare_dataset.py (download+merge) | train.py (train+ONNX export)
 ├── sensors_sim/        # datasource.py (ABC) | belt.py (physics + 5 sensors) | run.py (scenario->MQTT)
 ├── backend/            # fusion.py (health scoring) + tests; FastAPI/MQTT-subscriber/SQLite still TO BUILD
-├── infra/              # mosquitto.conf
-├── docker-compose.yml  # Mosquitto broker
+├── infra/              # broker.py (amqtt) + test_mqtt_roundtrip.py
+├── requirements.txt    # pinned; note the cu128 index URL for torch
 ├── dashboard/          # Next.js app (live view, alerts, trends) — also hosts the digital twin
 ├── digital_twin/       # r3f scene assets/components (consumed by dashboard)
 ├── scada_sim/          # pymodbus TCP server exposing health state to a mock SCADA
