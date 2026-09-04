@@ -37,16 +37,16 @@
 
 ## 4. What We're Building RIGHT NOW (no-hardware phase)
 
-- [ ] Vision defect-detection model (trained on public/adapted datasets, exportable to ONNX)
-- [ ] Simulated sensor data generator (vibration, temperature, load, speed, acoustic — with injected fault patterns)
-- [ ] MQTT pipeline (simulated publishers → broker → subscriber)
+- [~] Vision defect-detection model — dataset merged (1,573 imgs / 3,249 instances, 5 classes); **YOLOv8n training in progress**; ONNX export scripted, not yet produced
+- [x] **Simulated sensor data generator** — 5 sensors on one shared `BeltModel`; 7 physics self-checks passing
+- [~] MQTT pipeline — publisher + scenario runner written and dry-run verified; **broker not yet started (Docker Desktop was not running)**; subscriber not written
 - [ ] Backend API + time-series storage
-- [ ] Sensor fusion / health-scoring logic
+- [x] **Sensor fusion / health scoring** — explainable rule engine, 7 end-to-end checks passing incl. correct causal attribution
 - [ ] Predictive/anomaly detection model (using public bearing/vibration datasets as stand-ins, e.g. NASA/CWRU bearing datasets)
 - [ ] Real-time dashboard (live simulated data + live webcam-based vision demo)
 - [ ] Digital twin (basic 2D/3D visualization bound to simulated data)
 - [ ] SCADA/PLC integration simulated via a Modbus simulator
-- [ ] Clear abstraction layer so every simulated component can be swapped for real hardware later without rearchitecting
+- [x] **Abstraction layer** — `DataSource` ABC + required `Reading.simulated` flag
 
 ## 5. Tech Stack Decisions Log
 
@@ -91,12 +91,18 @@
 - **2026-09-04 — Unified 5-class taxonomy, with size dropped as a label.** `belt_joint`, `tear`, `hole`, `impact_damage`, `patch_repair`. The source sets' `Large Tear`/`Small Tear` distinction is collapsed because severity should be derived from measured box area, not from a labeller's subjective size call. `Human`, `Roller`, `Conveyor`, `Other Objects` are dropped as non-defects.
 - **2026-09-04 — Synthetic sensor data is signature-driven, not noise-driven.** Where a real dataset exists (vibration), fault signatures are extracted from CWRU/IMS and used to shape the generator. Where none exists (thermal, acoustic), signatures come from documented failure physics. Random noise alone would not survive a judge's question.
 
+- **2026-09-04 — Fusion is a rule engine, not a model.** Nobody stops a 2,000 t/h ore line on an unexplained 0.87. Every alarm emits the indicator, its measured value, and the standard behind the threshold (ISO 10816-3, bearing kurtosis rules, idler temperature practice). The planned ML anomaly/RUL layer sits *alongside* this as a catcher of unanticipated patterns, never replacing the explainable backbone.
+- **2026-09-04 — Evidence combines by noisy-OR, `1 - prod(1-s)`.** Chosen over `max()` because corroboration should count (three indicators at 0.5 is worse than one at 0.5) and over `mean()` because averaging lets healthy channels dilute one genuinely alarming one.
+- **2026-09-04 — CALIBRATION FIX: severity ramps top out at the physical worst case, not the alarm level.** First version anchored each ramp's upper bound near its alarm threshold, which pinned severity to 1.0 the instant a channel alarmed — the health score saturated at ~10/100 by the midpoint and the entire back half of the degradation timeline looked identical. Alarm placement is the job of the NORMAL/WARNING/CRITICAL bands. These bounds are the per-site tuning knob a real installation would adjust.
+
 ## 8. Known Blockers / Open Questions
 
 - **`Belt Joint` has only 41 labelled instances** across all datasets found. This is the single most important class for PS 26008 and it is the rarest. Mitigation plan: heavy augmentation, class-weighted loss, and honest reporting of per-class recall rather than a flattering overall mAP. May need hand-labelling a top-up set.
 - **`ui-ux-pro-max-skill` is NOT available in this environment.** Confirmed: absent from the session skill roster, and a plugin-catalog search returned zero results. Installing it needs `/plugin marketplace add nextlevelbuilder/ui-ux-pro-max-skill` from an **interactive `claude` terminal** — the desktop Code tab cannot run plugin dialogs. Until then the design-quality bar is enforced via the `frontend-design` and `design:*` skills instead. **Flagged to user, not silently skipped.**
 - **PyTorch installed is `2.11.0+cpu`** while the machine has an RTX 5060 (Blackwell, sm_120). GPU training needs a CUDA 12.8+ build (~2.5 GB download). Awaiting user go-ahead.
 - **Roboflow dataset pages return HTTP 403 to automated fetch.** Exact image counts, class lists and licenses must be confirmed via the Roboflow API (needs a free API key) or a manual browser check before a dataset is committed to.
+- **Docker Desktop is installed but was not running**, so the Mosquitto broker has never been started and the MQTT path is verified only in `--dry-run`. Needs Docker Desktop launched, then `docker compose up -d`.
+- **The project lives on OneDrive, which is measurably slowing training.** Ultralytics warned about slow image access (~3 MB/s); epochs run ~80 s instead of the expected ~25 s, making a 120-epoch run ~2.5 h. Side-effect worth knowing: OneDrive is syncing the ~1,600-image dataset regardless of `.gitignore`, consuming quota and bandwidth. Fix for future runs: put `vision/data/` on a local non-synced path.
 - **No physical hardware.** Standing constraint, not a blocker for this phase.
 
 ## 9. File/Folder Structure
@@ -107,9 +113,11 @@ SIH'26/
 ├── vision/             # defect detection: dataset prep, training, ONNX export, webcam demo
 │   ├── data/           # gitignored — downloaded datasets
 │   ├── models/         # gitignored — .pt / .onnx weights
-│   └── scripts/
-├── sensors_sim/        # DataSource abstraction + simulated vibration/temp/load/speed/acoustic
-├── backend/            # FastAPI: MQTT subscriber, SQLite store, fusion + health scoring, WS push
+│   └── scripts/        # prepare_dataset.py (download+merge) | train.py (train+ONNX export)
+├── sensors_sim/        # datasource.py (ABC) | belt.py (physics + 5 sensors) | run.py (scenario->MQTT)
+├── backend/            # fusion.py (health scoring) + tests; FastAPI/MQTT-subscriber/SQLite still TO BUILD
+├── infra/              # mosquitto.conf
+├── docker-compose.yml  # Mosquitto broker
 ├── dashboard/          # Next.js app (live view, alerts, trends) — also hosts the digital twin
 ├── digital_twin/       # r3f scene assets/components (consumed by dashboard)
 ├── scada_sim/          # pymodbus TCP server exposing health state to a mock SCADA
