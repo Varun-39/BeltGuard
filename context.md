@@ -44,8 +44,8 @@
 - [x] **Vision service** — ONNX inference, MJPEG stream, publishes detections to the same MQTT bus
 - [x] **Sensor fusion / health scoring** — explainable rule engine, 7 end-to-end checks passing incl. correct causal attribution
 - [x] **Predictive layer** — CWRU real-data validation of our vibration indicators (held-out-load split) + healthy-only anomaly detector + degradation-trend RUL with confidence bands
-- [ ] Real-time dashboard (live simulated data + live webcam-based vision demo)
-- [ ] Digital twin (basic 2D/3D visualization bound to simulated data)
+- [x] **Real-time dashboard** — Vite+React+Tailwind, live WebSocket, health gauge, streaming charts, MJPEG camera, evidence panel, RUL
+- [x] **Digital twin** — react-three-fiber, troughed belt geometry driven by live telemetry (belt scrolls at measured speed, splice tracks real belt phase, idler colour = bearing health)
 - [ ] SCADA/PLC integration simulated via a Modbus simulator
 - [x] **Abstraction layer** — `DataSource` ABC + required `Reading.simulated` flag
 
@@ -61,8 +61,8 @@
 | Messaging | MQTT via **amqtt** (pure Python) | ~~Mosquitto in Docker~~ — Docker Desktop needs WSL2, not installed, costs admin + reboot. amqtt keeps `pip install -r requirements.txt` as the entire setup. Same protocol/topics/payloads. | **Verified working 2026-09-04** |
 | Time-series store | SQLite (WAL mode) | Demo-scale data; InfluxDB adds an ops surface for zero demo benefit. Swap path documented in docs/ | Decided 2026-09-04 |
 | Backend | FastAPI + WebSocket push | Async, fast, WS gives the dashboard live streaming without polling | Decided 2026-09-04 |
-| Dashboard | Next.js + Tailwind + shadcn/ui + Recharts + Motion | Custom UI needed to clear the "not another Grafana screenshot" bar | Decided 2026-09-04 |
-| Digital twin | react-three-fiber (Three.js) inside the same Next app | One app, zero install for judges, shares the same live WS feed | Decided 2026-09-04 |
+| Dashboard | **Vite** + React + Tailwind v4 + Recharts | ~~Next.js + shadcn~~ — this is one client-side live page; SSR/routing/RSC contribute nothing and shadcn would supply ~2 components we'd hand-roll anyway. Vite is lighter with faster HMR. | Built 2026-09-04 |
+| Digital twin | react-three-fiber inside the dashboard app | One app, zero install for judges, shares the same live WS feed | Built 2026-09-04 |
 | SCADA/PLC sim | pymodbus TCP server | Standard industrial handoff; documents the real-SCADA mapping | Decided 2026-09-04 |
 
 ## 6. Datasets Found / In Use
@@ -108,6 +108,11 @@
 
 - **2026-09-04 — Project renamed `SIH'26` -> `beltguard`; product name BeltGuard.** The apostrophe was not cosmetic: it broke ultralytics `.pt` loading outright, and npm/Next.js were the next likely victims. Renaming was the root-cause fix rather than accumulating per-tool workarounds. Backend also moved off port 8000 (owned by another local project) to **8010**.
 
+- **2026-09-04 — Dashboard design taken from `ui-ux-pro-max`, with two deliberate departures.** Used its palette (#0F172A/#1B2336 dark tech + status green), Fira Sans/Fira Code pairing and dense-dashboard spacing. Departed on (a) **glassmorphism** — it was the recommended style, but frosted blur in a safety-critical control room trades legibility for decoration, so panels are solid with 1px borders; (b) **Next.js** — see stack table. Kept its accessibility requirement strictly: **status is never conveyed by colour alone** (every state carries a text label and a distinct glyph ● ▲ ■), and the streaming view has a Pause control.
+- **2026-09-04 — VISION EVIDENCE NEEDS TEMPORAL PERSISTENCE (real bug found via the dashboard).** Scoring the instantaneous camera detection made the health index flap between 13 and 100 twice a second, because each frame's detection instantly drove `belt_body`. That is wrong for the real system too: a single frame from a camera on a vibrating conveyor must never drive a maintenance alarm. The backend now aggregates detections over a 6 s window, requires a class to appear in >=40% of recent frames before it counts, and uses the **median** area rather than the worst frame. Health swing over 20 samples dropped ~87 -> ~38, with the remainder being genuine degradation.
+- **2026-09-04 — RUL must smooth before fitting.** Raw 2 Hz health carries real per-sample flicker; fitting a line straight through it produced r^2 0.04 and a nonsense 1874 points/hour trend. `_bin_median` bins to a median per time bucket first. Median not mean, so one frame catching a large tear cannot drag the whole trend.
+- **2026-09-04 — Vision area thresholds are a COMMISSIONING PARAMETER, not a constant.** `_vision_evidence` bounds assume a wide-angle camera seeing full belt width, where a serious tear is a few percent of frame. The `--source testset` images are macro shots of damaged belts (area_frac up to 0.58), so they saturate every threshold and read belt_body as failed continuously — correctly for that framing. Mount height, lens and belt width all move these numbers.
+
 ## 8. Known Blockers / Open Questions
 
 - **RESULT 2026-09-04 — trained model, and the honest reading of it.** 120 epochs, 57 min. Per-class on the held-out test split:
@@ -146,9 +151,10 @@ beltguard/
 ├── backend/            # fusion.py (health scoring) + tests; FastAPI/MQTT-subscriber/SQLite still TO BUILD
 ├── infra/              # broker.py (amqtt) + test_mqtt_roundtrip.py
 ├── requirements.txt    # pinned; note the cu128 index URL for torch
-├── dashboard/          # Next.js app (live view, alerts, trends) — also hosts the digital twin
-├── digital_twin/       # r3f scene assets/components (consumed by dashboard)
+├── dashboard/          # Vite+React app — live view, alerts, trends, camera, RUL
+│   └── src/components/ # Panels.tsx (gauge/bars) | Telemetry.tsx (charts/evidence/RUL) | Twin.tsx (3D + camera)
 ├── scada_sim/          # pymodbus TCP server exposing health state to a mock SCADA
+├── predictive/         # cwru.py (real-data validation) | rul.py (trend RUL)
 └── docs/               # architecture, hardware-swap guide, real-vs-simulated honesty doc
 
 Outside the repo (NOT synced by OneDrive), created by vision/paths.py:

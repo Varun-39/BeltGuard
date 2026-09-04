@@ -147,6 +147,15 @@ def _vision_evidence(vision: dict):
 
     Area fraction carries the severity a size label would have: this is why the
     taxonomy dropped "Large Tear"/"Small Tear" and measures the box instead.
+
+    CALIBRATION -- these bounds are FIELD-OF-VIEW DEPENDENT and must be re-tuned
+    per camera installation. They assume a wide-angle camera viewing a full belt
+    width, where a serious tear occupies a few percent of the frame. Feed them
+    close-up defect photography (as `--source testset` does, since those images
+    are macro shots of damaged belts) and every detection saturates to severity
+    1.0 -- correctly, for that framing, but it means the testset demo will read
+    belt_body as failed continuously. Mount height, lens and belt width all move
+    these numbers; treat them as a commissioning parameter, not a constant.
     """
     by_cls: dict[str, float] = {}
     for d in vision.get("detections", []):

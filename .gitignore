@@ -29,3 +29,6 @@ Thumbs.db
 
 # Ultralytics pretrained weights (auto-downloaded)
 yolov8*.pt
+
+# Local run logs
+.run_*.log

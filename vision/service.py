@@ -42,6 +42,7 @@ from .paths import DATASET, MODELS
 LINE = "nmdc-line-a"
 CAMERA_ID = "cam-head-01"
 CONF = 0.35
+TESTSET_HOLD_S = 2.5   # see _frames(): testset stills are not a continuous feed
 
 # Per-class colours (BGR). Belt joint is blue, not red: a joint is a landmark,
 # not a defect -- every belt has them. Damage classes are warm.
@@ -88,7 +89,12 @@ def _frames(source: str, loop: bool):
                 img = cv2.imread(str(p))
                 if img is not None:
                     yield img
-                    time.sleep(0.4)      # readable pace; these are stills
+                    # Hold each still for a couple of seconds. These are
+                    # unrelated belt photographs, not consecutive frames of one
+                    # belt, so cycling them fast makes the fused health score
+                    # flap between different belts' conditions. Holding also
+                    # gives a viewer time to actually read each detection.
+                    time.sleep(TESTSET_HOLD_S)
             if not loop:
                 return
         return

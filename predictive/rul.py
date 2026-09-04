@@ -59,6 +59,29 @@ class RulEstimate:
         return asdict(self)
 
 
+def _bin_median(t: np.ndarray, h: np.ndarray, buckets: int = 24
+                ) -> tuple[np.ndarray, np.ndarray]:
+    """Median-per-time-bucket. Robust to the spikes a raw health feed carries.
+
+    Median rather than mean: a single frame where the camera catches a large
+    tear drops health hard for half a second, and a mean would let that one
+    frame drag the whole trend.
+    """
+    span = t[-1] - t[0]
+    if span <= 0:
+        return t, h
+    n = min(buckets, max(4, len(t) // 4))
+    edges = np.linspace(t[0], t[-1] + 1e-12, n + 1)
+    idx = np.clip(np.searchsorted(edges, t, side="right") - 1, 0, n - 1)
+    tm, hm = [], []
+    for b in range(n):
+        m = idx == b
+        if m.any():
+            tm.append(float(t[m].mean()))
+            hm.append(float(np.median(h[m])))
+    return np.array(tm), np.array(hm)
+
+
 def estimate(ts_seconds: np.ndarray, health: np.ndarray,
              window_hours: float = 2.0) -> RulEstimate:
     """Project the recent health trend forward to the maintenance thresholds.
@@ -78,6 +101,17 @@ def estimate(ts_seconds: np.ndarray, health: np.ndarray,
     if recent.sum() < MIN_POINTS:
         recent = np.ones_like(hours, dtype=bool)
     t, h = hours[recent], hv[recent]
+
+    # Smooth before fitting. The raw health score arrives at 2 Hz and carries
+    # real per-sample flicker -- the camera sees a different stretch of belt
+    # every frame, so belt_body legitimately jumps around. Fitting a line
+    # straight through that measures noise, not degradation (observed r^2 0.04
+    # and a nonsense 1874 points/hour trend). Binning to a median per bucket
+    # keeps the trend and discards the jitter.
+    t, h = _bin_median(t, h)
+    if len(t) < 4:
+        return RulEstimate(0.0, None, None, None, None, 0.0, "none",
+                           "not enough distinct time buckets to fit a trend")
 
     slope, intercept = np.polyfit(t, h, 1)
     fit = slope * t + intercept

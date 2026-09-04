@@ -20,6 +20,7 @@ from __future__ import annotations
 import asyncio
 import json
 import time
+from collections import deque
 from contextlib import asynccontextmanager, suppress
 
 import paho.mqtt.client as mqtt
@@ -31,7 +32,9 @@ from .store import Store
 
 LINE = "nmdc-line-a"
 BROADCAST_HZ = 2.0
-VISION_TTL_S = 5.0      # a detection older than this no longer describes the belt
+VISION_TTL_S = 5.0        # no frames for this long -> report no vision evidence
+VISION_WINDOW_S = 6.0     # aggregation window for persistence
+VISION_PERSISTENCE = 0.4  # a defect must appear in >=40% of recent frames to count
 
 store = Store()
 
@@ -40,6 +43,8 @@ store = Store()
 # ever replace whole values, so no lock is needed here.
 latest: dict[str, dict] = {}
 latest_vision: dict = {}
+# (wall_ts, detections) for the last VISION_WINDOW_S seconds.
+vision_window: deque[tuple[float, list[dict]]] = deque()
 clients: set[WebSocket] = set()
 stats = {"messages": 0, "connected": False, "last_msg_ts": 0.0}
 
@@ -64,6 +69,8 @@ def _on_message(_c, _u, msg):
     if payload.get("kind") == "vision":
         latest_vision.clear()
         latest_vision.update(payload)
+        vision_window.append((payload.get("wall_ts", time.time()),
+                              payload.get("values", {}).get("detections", [])))
         return
 
     if "kind" in payload and "values" in payload:
@@ -72,17 +79,51 @@ def _on_message(_c, _u, msg):
 
 
 def _current_vision() -> dict | None:
-    """Vision evidence, but only while it is still fresh.
+    """Vision evidence, aggregated over a short window rather than per frame.
 
-    Without the TTL a single stale detection would keep the belt_body subsystem
-    pinned red forever after the camera stopped -- the dashboard would show a
-    tear that is no longer in frame.
+    TEMPORAL PERSISTENCE -- why this is not just `latest_vision`:
+
+    A single frame must never drive a maintenance alarm. A camera on a
+    vibrating conveyor throws false positives constantly, and belt lighting,
+    ore dust and motion blur all vary frame to frame. Scoring the instantaneous
+    detection made the health index flap between 13 and 100 twice a second,
+    which is both useless to an operator and wrong -- a belt does not repair
+    itself in 500 ms.
+
+    So a defect must PERSIST across a meaningful fraction of recent frames
+    before it counts, and its severity is the median area over those frames,
+    not the worst single frame. Flicker is suppressed; a real tear, which stays
+    in view as the belt runs, is not.
+
+    The TTL still applies: with no fresh frames at all we report nothing rather
+    than leaving belt_body pinned red after the camera stops.
     """
-    if not latest_vision:
+    now = time.time()
+    while vision_window and now - vision_window[0][0] > VISION_WINDOW_S:
+        vision_window.popleft()
+    if not vision_window or now - vision_window[-1][0] > VISION_TTL_S:
         return None
-    if time.time() - latest_vision.get("wall_ts", 0) > VISION_TTL_S:
-        return None
-    return latest_vision.get("values", {})
+
+    frames = len(vision_window)
+    by_cls: dict[str, list[float]] = {}
+    for _, dets in vision_window:
+        for d in dets:
+            if d.get("conf", 0) >= 0.35:
+                by_cls.setdefault(d["cls"], []).append(d.get("area_frac", 0.0))
+
+    out = []
+    for cls, areas in by_cls.items():
+        # Seen in too few of the recent frames -> treat as flicker, not damage.
+        if frames >= 4 and len(areas) / frames < VISION_PERSISTENCE:
+            continue
+        areas.sort()
+        out.append({
+            "cls": cls,
+            "conf": 0.9,
+            "area_frac": areas[len(areas) // 2],      # median, not max
+            "seen_in": round(len(areas) / frames, 2),
+        })
+    return {"detections": out, "frames_considered": frames}
 
 
 def current_health() -> dict:
@@ -172,6 +213,34 @@ def health_history(minutes: float = 30):
 @app.get("/api/history/{kind}")
 def history(kind: str, minutes: float = 30):
     return store.history(kind, minutes)
+
+
+@app.get("/api/rul")
+def rul(minutes: float = 30):
+    """Remaining-useful-life projection from the stored health trend.
+
+    Computed on demand rather than in the broadcast loop: it needs history, not
+    the latest sample, and at 2 Hz it would be refitting the same line 120 times
+    a minute to produce a number that moves on a scale of hours.
+    """
+    import numpy as np
+
+    from predictive.rul import estimate
+    from sensors_sim.run import DEMO_ACCELERATION
+
+    rows = store.health_history(minutes)
+    if len(rows) < 12:
+        return {"confidence": "none", "basis": f"only {len(rows)} health samples so far",
+                "hours_to_critical": None, "real_world_days": None}
+
+    e = estimate(np.array([r["ts"] for r in rows]),
+                 np.array([r["overall"] for r in rows])).to_dict()
+    # The scenario's fault ramp is accelerated; report the field equivalent too
+    # so nobody reads "0.04 h" as a claim that belts fail in minutes.
+    h = e["hours_to_critical"]
+    e["demo_acceleration"] = round(DEMO_ACCELERATION)
+    e["real_world_days"] = round(h * DEMO_ACCELERATION / 24, 1) if h else None
+    return e
 
 
 @app.websocket("/ws")

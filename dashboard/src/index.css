@@ -1,0 +1,95 @@
+@import 'tailwindcss';
+
+/* Fira Sans for UI, Fira Code for numbers.
+   Tabular monospace for telemetry is not decoration: readings update twice a
+   second, and proportional digits make the numbers jitter sideways on every
+   tick, which reads as instability in a control room. */
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Fira+Sans:wght@300;400;500;600;700&display=swap');
+
+@theme {
+  --color-bg: #0f172a;
+  --color-panel: #1b2336;
+  --color-panel-2: #212a40;
+  --color-muted: #272f42;
+  --color-border: #313d57;
+  --color-border-strong: #475569;
+  --color-fg: #f8fafc;
+  --color-fg-muted: #94a3b8;
+  --color-fg-dim: #64748b;
+
+  /* Status. Never used alone to convey state -- every status also carries a
+     label and an icon, per the chart-accessibility guidance. */
+  --color-ok: #22c55e;
+  --color-warn: #f59e0b;
+  --color-crit: #ef4444;
+  --color-info: #38bdf8;
+
+  --font-sans: 'Fira Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Fira Code', ui-monospace, monospace;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Telemetry digits must not shift width as values change. */
+.tnum {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Faint scanline texture. Industrial panels read as flat plastic without a
+   little surface noise; kept under 2% opacity so it never fights the data. */
+.panel-tex {
+  background-image: repeating-linear-gradient(
+    0deg,
+    rgba(255, 255, 255, 0.014) 0px,
+    rgba(255, 255, 255, 0.014) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}
+
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 currentColor; opacity: 0.55; }
+  70% { box-shadow: 0 0 0 7px transparent; opacity: 0; }
+  100% { box-shadow: 0 0 0 0 transparent; opacity: 0; }
+}
+.live-dot::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #33405c; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+/* Respect the OS setting: a control room operator who has asked for reduced
+   motion should not get a pulsing alarm dot. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
