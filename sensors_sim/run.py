@@ -27,6 +27,20 @@ from .belt import BeltModel, default_array
 
 LINE = "nmdc-line-a"
 
+# TIMESCALE -- read this before quoting any RUL number.
+#
+# A real conveyor splice degrades from first detectable symptom to rupture over
+# roughly 2-4 weeks. This scenario compresses that into 45 minutes of simulated
+# time so a demo is watchable. DEMO_ACCELERATION records the factor so anything
+# downstream (notably predictive/rul.py) can state the real-world equivalent
+# instead of implying a belt fails in an afternoon.
+#
+# The compression is applied to the FAULT RAMP only, not to the physics: belt
+# revolutions, thermal lag and bearing defect frequencies all run at real rates,
+# so the waveforms stay physically honest.
+REAL_DEGRADATION_DAYS = 21.0
+DEMO_ACCELERATION = REAL_DEGRADATION_DAYS * 24 * 3600 / 2700   # ~672x
+
 # (sim_seconds, {fault: severity}) -- severities ramp linearly between frames.
 # Story: a bearing starts to spall, running hot; the extra vibration works the
 # splice loose; tension falls and the joint approaches rupture.

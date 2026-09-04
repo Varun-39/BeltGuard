@@ -12,7 +12,7 @@ per sensor kind. A separate 2 Hz task fuses that snapshot, persists the health
 row, and broadcasts one combined frame. Ingest rate and UI rate are then
 independent -- a real Jetson publishing at 100 Hz would not change the frontend.
 
-Run:  .venv/Scripts/python.exe -m uvicorn backend.app:app --port 8000
+Run:  .venv/Scripts/python.exe -m uvicorn backend.app:app --port 8010
 """
 
 from __future__ import annotations

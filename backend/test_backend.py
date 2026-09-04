@@ -16,7 +16,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PY = ROOT / ".venv" / "Scripts" / "python.exe"
-API = "http://localhost:8000"
+API = "http://localhost:8010"
 
 
 def get(path: str):
@@ -44,7 +44,7 @@ def main() -> int:
     time.sleep(2)
     procs += [
         subprocess.Popen([str(PY), "-m", "uvicorn", "backend.app:app",
-                          "--port", "8000", "--log-level", "warning"],
+                          "--port", "8010", "--log-level", "warning"],
                          cwd=str(ROOT), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL),
         subprocess.Popen([str(PY), "-m", "sensors_sim.run", "--speed", "120", "--tick", "0.1"],
                          cwd=str(ROOT), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL),
@@ -80,7 +80,7 @@ def main() -> int:
         except ImportError:
             print("  SKIP websocket check (pip install websockets)")
         else:
-            with connect("ws://localhost:8000/ws", open_timeout=10) as ws:
+            with connect("ws://localhost:8010/ws", open_timeout=10) as ws:
                 frame = json.loads(ws.recv(timeout=10))
             assert frame["type"] == "tick" and frame["health"]["overall"] is not None
             assert set(frame["readings"]) == {"vibration", "temperature", "load",
