@@ -95,6 +95,8 @@
 - **2026-09-04 — Evidence combines by noisy-OR, `1 - prod(1-s)`.** Chosen over `max()` because corroboration should count (three indicators at 0.5 is worse than one at 0.5) and over `mean()` because averaging lets healthy channels dilute one genuinely alarming one.
 - **2026-09-04 — CALIBRATION FIX: severity ramps top out at the physical worst case, not the alarm level.** First version anchored each ramp's upper bound near its alarm threshold, which pinned severity to 1.0 the instant a channel alarmed — the health score saturated at ~10/100 by the midpoint and the entire back half of the degradation timeline looked identical. Alarm placement is the job of the NORMAL/WARNING/CRITICAL bands. These bounds are the per-site tuning knob a real installation would adjust.
 
+- **2026-09-04 — Heavy vision artifacts live outside the repo, at `%LOCALAPPDATA%\sih26\`.** The project sits under OneDrive, and OneDrive syncs by folder tree — it does not read `.gitignore`. A 141 MB dataset plus per-epoch checkpoints were being re-uploaded continuously, burning quota and bandwidth *and* throttling training. `%LOCALAPPDATA%` is never synced and is the conventional Windows home for regenerable data — and this data is regenerable, `prepare_dataset.py` re-downloads it. Resolved from the environment (not hardcoded to this user) via `vision/paths.py`, overridable with `SIH_DATA_DIR`. Final `.pt`/`.onnx` stay in the repo: small, and worth having backed up. Measured effect: 3.4x faster training.
+
 ## 8. Known Blockers / Open Questions
 
 - **`Belt Joint` has only 41 labelled instances** across all datasets found. This is the single most important class for PS 26008 and it is the rarest. Mitigation plan: heavy augmentation, class-weighted loss, and honest reporting of per-class recall rather than a flattering overall mAP. May need hand-labelling a top-up set.
@@ -102,7 +104,7 @@
 - **PyTorch installed is `2.11.0+cpu`** while the machine has an RTX 5060 (Blackwell, sm_120). GPU training needs a CUDA 12.8+ build (~2.5 GB download). Awaiting user go-ahead.
 - **Roboflow dataset pages return HTTP 403 to automated fetch.** Exact image counts, class lists and licenses must be confirmed via the Roboflow API (needs a free API key) or a manual browser check before a dataset is committed to.
 - **Docker Desktop is installed but was not running**, so the Mosquitto broker has never been started and the MQTT path is verified only in `--dry-run`. Needs Docker Desktop launched, then `docker compose up -d`.
-- **The project lives on OneDrive, which is measurably slowing training.** Ultralytics warned about slow image access (~3 MB/s); epochs run ~80 s instead of the expected ~25 s, making a 120-epoch run ~2.5 h. Side-effect worth knowing: OneDrive is syncing the ~1,600-image dataset regardless of `.gitignore`, consuming quota and bandwidth. Fix for future runs: put `vision/data/` on a local non-synced path.
+- ~~The project lives on OneDrive, which is measurably slowing training.~~ **RESOLVED 2026-09-04** — heavy artifacts relocated to `%LOCALAPPDATA%\sih26\` (see decision log). Image read 3.3 -> 38.9 MB/s, epoch time ~80 s -> 23.8 s, full run ~2.5 h -> ~60 min. Ultralytics still prints its slow-access warning (its threshold is aggressive) but the bottleneck is gone.
 - **No physical hardware.** Standing constraint, not a blocker for this phase.
 
 ## 9. File/Folder Structure
@@ -111,8 +113,8 @@
 SIH'26/
 ├── context.md          # this file — project memory
 ├── vision/             # defect detection: dataset prep, training, ONNX export, webcam demo
-│   ├── data/           # gitignored — downloaded datasets
-│   ├── models/         # gitignored — .pt / .onnx weights
+│   ├── paths.py        # resolves heavy-artifact locations (see decision log)
+│   ├── models/         # gitignored — final .pt / .onnx weights
 │   └── scripts/        # prepare_dataset.py (download+merge) | train.py (train+ONNX export)
 ├── sensors_sim/        # datasource.py (ABC) | belt.py (physics + 5 sensors) | run.py (scenario->MQTT)
 ├── backend/            # fusion.py (health scoring) + tests; FastAPI/MQTT-subscriber/SQLite still TO BUILD
@@ -122,6 +124,13 @@ SIH'26/
 ├── digital_twin/       # r3f scene assets/components (consumed by dashboard)
 ├── scada_sim/          # pymodbus TCP server exposing health state to a mock SCADA
 └── docs/               # architecture, hardware-swap guide, real-vs-simulated honesty doc
+
+Outside the repo (NOT synced by OneDrive), created by vision/paths.py:
+%LOCALAPPDATA%/sih26/
+├── raw/                # Roboflow downloads as-fetched
+├── belt_defects/       # merged dataset, unified 5-class taxonomy
+├── runs/               # training checkpoints (per-epoch churn)
+└── train.log
 ```
 
 ## 10. Demo Narrative (for SIH presentation)

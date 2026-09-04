@@ -27,8 +27,8 @@ import yaml
 from dotenv import load_dotenv
 
 ROOT = Path(__file__).resolve().parents[2]
-RAW = ROOT / "vision" / "data" / "raw"
-OUT = ROOT / "vision" / "data" / "belt_defects"
+sys.path.insert(0, str(ROOT))
+from vision.paths import RAW, DATASET as OUT  # noqa: E402  (needs ROOT on path)
 
 # The unified taxonomy. Size ("Large"/"Small") is deliberately NOT a label --
 # severity is derived from measured box area, not a labeller's subjective call.

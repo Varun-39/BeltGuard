@@ -10,14 +10,17 @@ Run:  .venv/Scripts/python.exe vision/scripts/train.py [--epochs N]
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 
 import torch
 from ultralytics import YOLO
 
 ROOT = Path(__file__).resolve().parents[2]
-DATA = ROOT / "vision" / "data" / "belt_defects" / "data.yaml"
-MODELS = ROOT / "vision" / "models"
+sys.path.insert(0, str(ROOT))
+from vision.paths import DATASET, RUNS, MODELS  # noqa: E402  (needs ROOT on path)
+
+DATA = DATASET / "data.yaml"
 
 
 def main() -> None:
@@ -38,7 +41,7 @@ def main() -> None:
         imgsz=args.imgsz,
         batch=args.batch,
         device=0,
-        project=str(ROOT / "vision" / "runs"),
+        project=str(RUNS),
         name="belt_defect",
         exist_ok=True,
         patience=30,
