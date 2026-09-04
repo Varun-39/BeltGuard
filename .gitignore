@@ -26,3 +26,6 @@ sensors_sim/data/
 # OS
 Thumbs.db
 .DS_Store
+
+# Ultralytics pretrained weights (auto-downloaded)
+yolov8*.pt
