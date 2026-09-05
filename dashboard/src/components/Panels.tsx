@@ -12,6 +12,25 @@ export const STATE = {
 
 export type StateKey = keyof typeof STATE
 
+/** Resolve a `var(--x)` token to a literal colour.
+ *
+ *  three.js cannot parse CSS custom properties -- passing one to a material
+ *  logs "THREE.Color: Unknown color model" every frame and renders the mesh
+ *  black, which on a dark scene looks like nothing drew at all. The DOM keeps
+ *  using the tokens; only the WebGL side needs resolving, so index.css stays
+ *  the single source of truth for the palette. */
+const cache = new Map<string, string>()
+export function cssColor(v: string): string {
+  if (!v.startsWith('var(')) return v
+  const hit = cache.get(v)
+  if (hit) return hit
+  const name = v.slice(4, -1).trim()
+  const out =
+    getComputedStyle(document.documentElement).getPropertyValue(name).trim() || '#94a3b8'
+  cache.set(v, out)
+  return out
+}
+
 export function stateFor(score: number | null | undefined): StateKey {
   if (score === null || score === undefined) return 'NO_DATA'
   return score >= 80 ? 'NORMAL' : score >= 50 ? 'WARNING' : 'CRITICAL'

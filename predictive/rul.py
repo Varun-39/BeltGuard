@@ -147,10 +147,13 @@ def estimate(ts_seconds: np.ndarray, health: np.ndarray,
 
     return RulEstimate(
         trend_per_hour=round(decline, 3),
-        hours_to_warning=None if (w := hours_to(WARNING_LEVEL)) is None else round(w, 2),
-        hours_to_critical=None if crit is None else round(crit, 2),
-        ci_low_hours=round(min(ci_low, ci_high), 2),
-        ci_high_hours=round(max(ci_low, ci_high), 2),
+        # 4 dp, not 2: under the demo's accelerated fault ramp these are
+        # hundredths of an hour, and rounding to 2 dp collapsed the confidence
+        # bounds onto the same number ("95% CI 0.6-0.6 days").
+        hours_to_warning=None if (w := hours_to(WARNING_LEVEL)) is None else round(w, 4),
+        hours_to_critical=None if crit is None else round(crit, 4),
+        ci_low_hours=round(min(ci_low, ci_high), 4),
+        ci_high_hours=round(max(ci_low, ci_high), 4),
         r_squared=round(r2, 3),
         confidence=confidence,
         basis=f"linear fit over last {span:.2f} h of health history ({len(t)} points)",

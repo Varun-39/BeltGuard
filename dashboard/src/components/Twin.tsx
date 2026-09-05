@@ -3,7 +3,7 @@ import { Html, OrbitControls } from '@react-three/drei'
 import { useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import type { Frame } from '../useLive'
-import { STATE, stateFor } from './Panels'
+import { STATE, cssColor, stateFor } from './Panels'
 
 /** Digital twin bound to the live feed.
 
@@ -19,7 +19,7 @@ const BELT_W = 1.5
 const TROUGH = 0.62      // side-wing angle (rad); real idler sets run ~35deg
 
 function Idler({ x, health, monitored }: { x: number; health: number; monitored: boolean }) {
-  const col = monitored ? STATE[stateFor(health)].color : '#64748b'
+  const col = cssColor(monitored ? STATE[stateFor(health)].color : '#64748b')
   const ref = useRef<THREE.Mesh>(null)
   useFrame((_, dt) => {
     if (ref.current) ref.current.rotation.x += dt * 3
@@ -51,7 +51,7 @@ function Belt({ frame }: { frame: Frame | null }) {
 
   const speed = frame?.readings?.speed?.speed_mps ?? 0
   const jointHealth = frame?.health?.subsystems?.joint ?? 100
-  const spliceCol = STATE[stateFor(jointHealth)].color
+  const spliceCol = cssColor(STATE[stateFor(jointHealth)].color)
 
   // Scrolling texture at the measured belt speed. The stripes are a visual
   // proxy for motion; the SPEED is the real measurement driving it.
@@ -141,6 +141,10 @@ export function DigitalTwin({ frame }: { frame: Frame | null }) {
   return (
     <div className="relative h-[280px] lg:h-full lg:min-h-[210px]">
       <Canvas camera={{ position: [3.4, 2.5, 5.4], fov: 40 }} dpr={[1, 1.75]}
+              // preserveDrawingBuffer: the embedded preview pane does not composite
+              // the WebGL canvas into screenshots, so toDataURL() is the only way to
+              // confirm the scene actually drew. Also makes a twin snapshot exportable.
+              gl={{ preserveDrawingBuffer: true }}
               onCreated={({ gl }) => gl.setClearColor('#141b2c')}
               onError={() => setErr(true)}>
         <ambientLight intensity={0.55} />

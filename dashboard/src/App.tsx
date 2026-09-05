@@ -1,7 +1,9 @@
 import { useState } from 'react'
-import { useLive, useRul } from './useLive'
+import { useEvents, useLive, useRul } from './useLive'
 import { Badge, HealthGauge, Panel, STATE, SubsystemBars, stateFor } from './components/Panels'
-import { Channel, Evidence, HealthTrend, RulPanel, SourceBar } from './components/Telemetry'
+import {
+  ActionPanel, Channel, EventLog, Evidence, HealthTrend, RulPanel, SourceBar,
+} from './components/Telemetry'
 import { CameraFeed, DigitalTwin } from './components/Twin'
 
 function Header({
@@ -89,6 +91,7 @@ export default function App() {
   const [paused, setPaused] = useState(false)
   const { frame, series, connected } = useLive(paused)
   const rul = useRul(connected)
+  const events = useEvents(connected)
 
   const health = frame?.health
   const state = stateFor(health?.overall)
@@ -106,7 +109,7 @@ export default function App() {
                          lg:grid lg:min-h-0 lg:grid-cols-[300px_minmax(0,1fr)_310px]
                          lg:overflow-hidden">
           {/* LEFT: state at a glance */}
-          <div className="flex flex-col gap-2.5 lg:min-h-0">
+          <div className="flex flex-col gap-2.5 lg:min-h-0 lg:overflow-y-auto">
             <Panel title="Belt Health"
                    right={<Badge tone={state === 'NORMAL' ? 'ok' : state === 'WARNING' ? 'warn' : 'crit'}>
                      {STATE[state].label}</Badge>}>
@@ -115,13 +118,16 @@ export default function App() {
             <Panel title="Subsystems">
               <SubsystemBars subsystems={health!.subsystems} />
             </Panel>
-            <Panel title="Predicted Life" className="lg:flex-1">
+            <Panel title="Predicted Life">
               <RulPanel rul={rul} />
+            </Panel>
+            <Panel title="Recommended Action" className="lg:flex-1">
+              <ActionPanel health={health!} rul={rul} />
             </Panel>
           </div>
 
           {/* CENTRE: the belt itself */}
-          <div className="flex flex-col gap-2.5 lg:min-h-0">
+          <div className="flex flex-col gap-2.5 lg:min-h-0 lg:overflow-y-auto">
             <Panel title="Digital Twin"
                    right={<span className="tnum text-[10px] text-[var(--color-fg-dim)]">
                      {(frame.readings?.speed?.speed_mps ?? 0).toFixed(2)} m/s</span>}
@@ -129,8 +135,10 @@ export default function App() {
               <DigitalTwin frame={frame} />
             </Panel>
 
-            <Panel title="Health Trend">
-              <HealthTrend series={series} />
+            <Panel title="Health Trend"
+                   right={rul?.hours_to_critical ? (
+                     <Badge tone="warn">projection</Badge>) : undefined}>
+              <HealthTrend series={series} rul={rul} />
             </Panel>
 
             <div className="grid shrink-0 grid-cols-2 gap-2.5 xl:grid-cols-4">
@@ -146,16 +154,20 @@ export default function App() {
           </div>
 
           {/* RIGHT: camera + why */}
-          <div className="flex flex-col gap-2.5 lg:min-h-0">
+          <div className="flex flex-col gap-2.5 lg:min-h-0 lg:overflow-y-auto">
             <Panel title="Inspection Camera"
                    right={<Badge tone={health!.vision_active ? 'ok' : 'neutral'}>
                      {health!.vision_active ? 'detecting' : 'offline'}</Badge>}
                    className="min-h-[220px] lg:flex-[0.9]">
               <CameraFeed frame={frame} />
             </Panel>
-            <Panel title="Active Indicators" className="min-h-[180px] lg:flex-1"
+            <Panel title="Active Indicators" className="min-h-[160px] lg:flex-1"
                    right={<Badge>{health!.reasons.length}</Badge>}>
               <Evidence reasons={health!.reasons} />
+            </Panel>
+            <Panel title="Event Log" className="min-h-[140px] lg:flex-[0.8]"
+                   right={<Badge>{events.length}</Badge>}>
+              <EventLog events={events} />
             </Panel>
             <Panel title="Data Sources">
               <SourceBar frame={frame} />

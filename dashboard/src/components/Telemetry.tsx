@@ -1,7 +1,7 @@
 import {
   Area, AreaChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
-import type { Frame, Reasons, Rul } from '../useLive'
+import type { Evt, Frame, Health, Reasons, Rul } from '../useLive'
 import { Badge, Panel, STATE, stateFor } from './Panels'
 
 const AXIS = { stroke: 'var(--color-fg-dim)', fontSize: 10, fontFamily: 'Fira Code' }
@@ -74,8 +74,53 @@ export function Channel({
   )
 }
 
-export function HealthTrend({ series }: { series: Frame[] }) {
-  const data = series.map((f) => ({ t: f.ts, v: f.health.overall }))
+/** History plus the RUL trend projected forward to the CRITICAL threshold.
+ *
+ *  This is the panel that makes "predictive" legible: the belt has not failed,
+ *  and here is when it will. `lo`/`hi` are the 95% bounds already computed in
+ *  rul.py -- drawn as dashed edges rather than a filled cone, which needs a
+ *  ranged-area hack for no extra meaning. */
+export function HealthTrend({ series, rul }: { series: Frame[]; rul?: Rul | null }) {
+  const hist = series.map((f) => ({ t: f.ts, v: f.health.overall }))
+
+  const proj: { t: number; proj: number; lo: number; hi: number }[] = []
+  const last = hist.at(-1)
+  const rate = rul?.trend_per_hour
+  if (last && rate && rate > 0 && rul?.hours_to_critical) {
+    // Project just past the crossing so the intersection is visible, and derive
+    // the optimistic/pessimistic slopes from the CI on time-to-critical.
+    // Cap the horizon to ~1.2x the visible history. Projecting far past the
+    // window squeezes the measured trend into a sliver, and the trend is the
+    // evidence for the projection -- hiding it defeats the panel.
+    const histHours = (hist.at(-1)!.t - hist[0].t) / 3600
+    const span = Math.min(rul.hours_to_critical * 1.35, Math.max(histHours * 1.2, 0.02))
+    const rHi = (last.v - 50) / Math.max(rul.ci_low_hours || span, 1e-6)   // fastest
+    const rLo = (last.v - 50) / Math.max(rul.ci_high_hours || span, 1e-6)  // slowest
+    // Start at i=1: i=0 would repeat last.t, and a duplicate x value makes
+    // Recharts generate duplicate React keys and omit ticks.
+    for (let i = 1; i <= 20; i++) {
+      const dh = (i / 20) * span
+      proj.push({
+        t: last.t + dh * 3600,
+        proj: Math.max(0, last.v - rate * dh),
+        lo: Math.max(0, last.v - rHi * dh),
+        hi: Math.max(0, last.v - rLo * dh),
+      })
+    }
+  }
+
+  // One array, two disjoint key sets: history rows carry `v`, projection rows
+  // carry proj/lo/hi. Recharts skips undefined, so the traces do not bleed.
+  // The seam row carries both so the dashed line starts on the measured value
+  // rather than floating away from it.
+  const data: Record<string, number>[] = hist.map((h, i) =>
+    i === hist.length - 1 && proj.length
+      ? { ...h, proj: h.v, lo: h.v, hi: h.v }
+      : h,
+  )
+  data.push(...proj)
+  const crossing = last && rate ? last.t + (rul!.hours_to_critical || 0) * 3600 : null
+
   return (
     <div className="h-[132px] px-2 pt-2 pb-1">
       <ResponsiveContainer width="100%" height="100%">
@@ -87,23 +132,45 @@ export function HealthTrend({ series }: { series: Frame[] }) {
             </linearGradient>
           </defs>
           <CartesianGrid stroke="var(--color-muted)" vertical={false} />
-          <XAxis dataKey="t" {...AXIS} tickLine={false} axisLine={false} minTickGap={60}
+          {/* Numeric time axis: projection points sit in the future, so a
+              category axis would bunch them at the end. */}
+          <XAxis dataKey="t" type="number" scale="time" domain={['dataMin', 'dataMax']}
+                 {...AXIS} tickLine={false} axisLine={false} minTickGap={60}
                  tickFormatter={(t) => new Date(Number(t) * 1000).toLocaleTimeString([], {
-                   hour: '2-digit', minute: '2-digit', second: '2-digit' })} />
+                   hour: '2-digit', minute: '2-digit' })} />
           <YAxis domain={[0, 100]} width={28} {...AXIS} tickLine={false} axisLine={false} />
           {/* The same thresholds fusion.score() uses, drawn where they apply. */}
           <ReferenceLine y={80} stroke="var(--color-ok)" strokeDasharray="4 4" strokeOpacity={0.5} />
           <ReferenceLine y={50} stroke="var(--color-crit)" strokeDasharray="4 4" strokeOpacity={0.5} />
+          {crossing && (
+            <ReferenceLine x={crossing} stroke="var(--color-crit)" strokeWidth={1.2}
+                           label={{ value: 'CRITICAL', position: 'insideTopRight',
+                                    fill: 'var(--color-crit)', fontSize: 9,
+                                    fontFamily: 'Fira Code' }} />
+          )}
           <Tooltip
             contentStyle={{
               background: 'var(--color-bg)', border: '1px solid var(--color-border-strong)',
               borderRadius: 6, fontSize: 11, fontFamily: 'Fira Code',
             }}
             labelFormatter={(t) => new Date(Number(t) * 1000).toLocaleTimeString()}
-            formatter={(v: number) => [`${v} / 100`, 'Health']}
+            formatter={(v: number, n: string) => [
+              `${Math.round(v)} / 100`,
+              n === 'v' ? 'Health' : n === 'proj' ? 'Projected' : n === 'lo' ? 'Best case' : 'Worst case',
+            ]}
           />
           <Area type="monotone" dataKey="v" stroke="var(--color-info)" strokeWidth={1.8}
                 fill="url(#gh)" isAnimationActive={false} dot={false} />
+          {/* Projection: dashed and unfilled so it never reads as measured. */}
+          <Area type="monotone" dataKey="lo" stroke="var(--color-warn)" strokeWidth={1}
+                strokeDasharray="2 3" strokeOpacity={0.55} fill="none"
+                isAnimationActive={false} dot={false} connectNulls={false} />
+          <Area type="monotone" dataKey="hi" stroke="var(--color-warn)" strokeWidth={1}
+                strokeDasharray="2 3" strokeOpacity={0.55} fill="none"
+                isAnimationActive={false} dot={false} connectNulls={false} />
+          <Area type="monotone" dataKey="proj" stroke="var(--color-warn)" strokeWidth={1.8}
+                strokeDasharray="5 4" fill="none" isAnimationActive={false}
+                dot={false} connectNulls={false} />
         </AreaChart>
       </ResponsiveContainer>
     </div>
@@ -204,6 +271,123 @@ export function RulPanel({ rul }: { rul: Rul | null }) {
           : ''}
       </p>
     </div>
+  )
+}
+
+/** What to DO about it.
+ *
+ *  Detection without a recommended action is a dashboard, not a maintenance
+ *  system. The planned-vs-unplanned downtime contrast is the entire business
+ *  case for the project and nothing else on screen states it.
+ *
+ *  Downtime figures are industry-typical for a trough conveyor, not measured
+ *  on an NMDC line -- labelled as estimates in the UI for that reason. */
+const ACTIONS: Record<string, { do_: string; where: string; planned: string; unplanned: string }> = {
+  bearing: {
+    do_: 'Replace idler bearing',
+    where: 'idler-04, 120 m from tail pulley',
+    planned: '45 min', unplanned: '8-14 h',
+  },
+  joint: {
+    do_: 'Inspect and re-vulcanise splice',
+    where: 'belt joint, one pass per 143 s revolution',
+    planned: '6 h', unplanned: '24-72 h',
+  },
+  alignment: {
+    do_: 'Adjust belt tracking',
+    where: 'training idlers, carry side',
+    planned: '30 min', unplanned: '4-10 h',
+  },
+  belt_body: {
+    do_: 'Patch belt surface damage',
+    where: 'section under cam-head-01',
+    planned: '2 h', unplanned: '12-36 h',
+  },
+}
+
+export function ActionPanel({ health, rul }: { health: Health; rul: Rul | null }) {
+  const worst = Object.entries(health.subsystems).sort((a, b) => a[1] - b[1])[0]
+  if (!worst || worst[1] >= 80) {
+    return (
+      <div className="flex h-full items-center justify-center px-4 py-5 text-center">
+        <p className="text-[11px] text-[var(--color-fg-dim)]">
+          No action required.<br />All subsystems above 80.
+        </p>
+      </div>
+    )
+  }
+  const [sub, score] = worst
+  const a = ACTIONS[sub]
+  const days = rul?.real_world_days
+  const urgent = score < 50
+  const col = urgent ? 'var(--color-crit)' : 'var(--color-warn)'
+
+  return (
+    <div className="flex flex-col gap-2 px-3 py-2.5">
+      <div>
+        <p className="text-[13px] leading-snug font-500" style={{ color: col }}>{a.do_}</p>
+        <p className="mt-0.5 text-[10.5px] text-[var(--color-fg-muted)]">{a.where}</p>
+      </div>
+
+      <p className="text-[11px] text-[var(--color-fg)]">
+        Schedule within{' '}
+        <span className="tnum font-600" style={{ color: col }}>
+          {days == null ? 'next shift' : days < 1 ? '24 hours'
+            : `${Math.floor(days)} day${Math.floor(days) === 1 ? '' : 's'}`}
+        </span>
+      </p>
+
+      {/* The argument for acting: planned repair is an order of magnitude
+          cheaper in downtime than the rupture it prevents. */}
+      <div className="grid grid-cols-2 gap-2 rounded border border-[var(--color-border)] bg-[var(--color-panel-2)] p-2">
+        <div>
+          <p className="text-[9px] tracking-wider text-[var(--color-fg-dim)] uppercase">Planned</p>
+          <p className="tnum text-[13px] font-600 text-[var(--color-ok)]">{a.planned}</p>
+        </div>
+        <div>
+          <p className="text-[9px] tracking-wider text-[var(--color-fg-dim)] uppercase">If it ruptures</p>
+          <p className="tnum text-[13px] font-600 text-[var(--color-crit)]">{a.unplanned}</p>
+        </div>
+      </div>
+      <p className="text-[9px] text-[var(--color-fg-dim)]">
+        Downtime figures are industry-typical estimates, not NMDC-measured.
+      </p>
+    </div>
+  )
+}
+
+/** Alarm log. Answers "when did this start", which the live view cannot. */
+export function EventLog({ events }: { events: Evt[] }) {
+  if (!events.length) {
+    return (
+      <div className="flex h-full items-center justify-center px-4 py-6 text-center">
+        <p className="text-[11px] text-[var(--color-fg-dim)]">No state changes recorded</p>
+      </div>
+    )
+  }
+  return (
+    <ul className="flex flex-col divide-y divide-[var(--color-border)] overflow-y-auto">
+      {events.map((e, i) => {
+        const s = STATE[e.to as keyof typeof STATE] ?? STATE.NO_DATA
+        const worse = ['NORMAL', 'WARNING', 'CRITICAL'].indexOf(e.to) >
+                      ['NORMAL', 'WARNING', 'CRITICAL'].indexOf(e.from)
+        return (
+          <li key={`${e.ts}-${i}`} className="flex items-baseline gap-2 px-3 py-1.5">
+            <span className="tnum shrink-0 text-[10px] text-[var(--color-fg-dim)]">
+              {new Date(e.ts * 1000).toLocaleTimeString([], {
+                hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+            </span>
+            <span aria-hidden className="shrink-0 text-[9px]" style={{ color: s.color }}>
+              {worse ? '▲' : '▼'}
+            </span>
+            <span className="text-[11px] leading-snug text-[var(--color-fg-muted)]">
+              {e.from} <span className="text-[var(--color-fg-dim)]">&rarr;</span>{' '}
+              <span style={{ color: s.color }}>{e.to}</span>
+            </span>
+          </li>
+        )
+      })}
+    </ul>
   )
 }
 

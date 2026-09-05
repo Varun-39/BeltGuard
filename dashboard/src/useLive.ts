@@ -97,6 +97,50 @@ export function useLive(paused: boolean) {
   return { frame, series, connected }
 }
 
+export type Evt = { ts: number; kind: 'state'; from: string; to: string }
+
+/** Alarm log, derived client-side from health history the backend already
+ *  stores. No new table and no new endpoint -- a state transition is just a
+ *  change between consecutive rows of /api/health/history. */
+export function useEvents(enabled: boolean) {
+  const [events, setEvents] = useState<Evt[]>([])
+  useEffect(() => {
+    if (!enabled) return
+    let alive = true
+    const load = () =>
+      fetch('/api/health/history?minutes=60')
+        .then((r) => r.json())
+        .then((rows: { ts: number; state: string }[]) => {
+          if (!alive) return
+          // Deadband: a new state must hold for HOLD consecutive samples before
+          // it counts as a transition. Health hovering on a threshold otherwise
+          // fills the log with WARNING->NORMAL->WARNING noise, which is the
+          // classic way an alarm list becomes something operators ignore.
+          const HOLD = 4
+          const out: Evt[] = []
+          let confirmed = rows[0]?.state
+          for (let i = 1; i < rows.length; i++) {
+            const s2 = rows[i].state
+            if (s2 === confirmed) continue
+            const holds = rows.slice(i, i + HOLD)
+            if (holds.length === HOLD && holds.every((r) => r.state === s2)) {
+              out.push({ ts: rows[i].ts, kind: 'state', from: confirmed, to: s2 })
+              confirmed = s2
+            }
+          }
+          setEvents(out.reverse().slice(0, 40))   // newest first
+        })
+        .catch(() => {})
+    load()
+    const id = setInterval(load, 5000)
+    return () => {
+      alive = false
+      clearInterval(id)
+    }
+  }, [enabled])
+  return events
+}
+
 /** RUL refits a trend over stored history, so it is polled slowly rather than
  *  pushed: the answer moves on a scale of hours, not half-seconds. */
 export function useRul(enabled: boolean) {
