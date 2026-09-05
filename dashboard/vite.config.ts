@@ -15,10 +15,6 @@ export default defineConfig({
       '/api': 'http://localhost:8010',
       '/ws': { target: 'ws://localhost:8010', ws: true },
       '/stream': 'http://localhost:8001',
-      '/vision-state': {
-        target: 'http://localhost:8001',
-        rewrite: (p) => p.replace(/^\/vision-state/, '/state'),
-      },
     },
   },
 })

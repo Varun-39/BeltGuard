@@ -179,6 +179,14 @@ export function RulPanel({ rul }: { rul: Rul | null }) {
         </span>
       </div>
 
+      {/* The interval, not just the point estimate -- rul.py promises this. */}
+      {rul.ci_low_hours != null && rul.ci_high_hours != null && rul.demo_acceleration && (
+        <p className="tnum text-[11px] text-[var(--color-fg-muted)]">
+          95% CI {(rul.ci_low_hours * rul.demo_acceleration / 24).toFixed(1)}–
+          {(rul.ci_high_hours * rul.demo_acceleration / 24).toFixed(1)} days
+        </p>
+      )}
+
       <div className="flex flex-wrap items-center gap-1.5">
         <Badge tone={rul.confidence === 'high' ? 'ok' : rul.confidence === 'medium' ? 'info' : 'warn'}>
           {rul.confidence} confidence
@@ -220,5 +228,3 @@ export function SourceBar({ frame }: { frame: Frame | null }) {
     </div>
   )
 }
-
-export { Panel, STATE, stateFor }

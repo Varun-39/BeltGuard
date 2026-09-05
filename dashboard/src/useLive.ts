@@ -75,11 +75,7 @@ export function useLive(paused: boolean) {
         if (pausedRef.current) return
         const f: Frame = JSON.parse(e.data)
         setFrame(f)
-        setSeries((prev) => {
-          const next = prev.length >= BUFFER ? prev.slice(prev.length - BUFFER + 1) : prev.slice()
-          next.push(f)
-          return next
-        })
+        setSeries((prev) => [...prev, f].slice(-BUFFER))
       }
       ws.onclose = () => {
         setConnected(false)

@@ -42,9 +42,9 @@ store = Store()
 # broadcast task. Plain dict assignment is atomic under the GIL and we only
 # ever replace whole values, so no lock is needed here.
 latest: dict[str, dict] = {}
-latest_vision: dict = {}
 # (wall_ts, detections) for the last VISION_WINDOW_S seconds.
 vision_window: deque[tuple[float, list[dict]]] = deque()
+vision_simulated = True
 clients: set[WebSocket] = set()
 stats = {"messages": 0, "connected": False, "last_msg_ts": 0.0}
 
@@ -67,8 +67,8 @@ def _on_message(_c, _u, msg):
     stats["last_msg_ts"] = time.time()
 
     if payload.get("kind") == "vision":
-        latest_vision.clear()
-        latest_vision.update(payload)
+        global vision_simulated
+        vision_simulated = bool(payload.get("simulated", True))
         vision_window.append((payload.get("wall_ts", time.time()),
                               payload.get("values", {}).get("detections", [])))
         return
@@ -81,7 +81,7 @@ def _on_message(_c, _u, msg):
 def _current_vision() -> dict | None:
     """Vision evidence, aggregated over a short window rather than per frame.
 
-    TEMPORAL PERSISTENCE -- why this is not just `latest_vision`:
+    TEMPORAL PERSISTENCE -- why this is not just the newest frame:
 
     A single frame must never drive a maintenance alarm. A camera on a
     vibrating conveyor throws false positives constantly, and belt lighting,
@@ -132,7 +132,7 @@ def current_health() -> dict:
     # Honest only if every contributing source says it is real.
     simulated = any(v.get("simulated", True) for v in latest.values()) or not latest
     if vision is not None:
-        simulated = simulated or bool(latest_vision.get("simulated", True))
+        simulated = simulated or vision_simulated
     h = score(evaluate(snapshot, vision), simulated=simulated).to_dict()
     h["sources"] = {k: {"sensor_id": v["sensor_id"], "simulated": v["simulated"]}
                     for k, v in latest.items()}

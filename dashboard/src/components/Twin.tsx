@@ -46,7 +46,6 @@ function Idler({ x, health, monitored }: { x: number; health: number; monitored:
 }
 
 function Belt({ frame }: { frame: Frame | null }) {
-  const beltRef = useRef<THREE.Mesh>(null)
   const spliceRef = useRef<THREE.Mesh>(null)
   const phase = useRef(0)
 
@@ -82,7 +81,7 @@ function Belt({ frame }: { frame: Frame | null }) {
 
   return (
     <group>
-      <mesh ref={beltRef} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[BELT_LEN, BELT_W]} />
         <meshStandardMaterial map={tex} roughness={0.9} metalness={0.05} side={THREE.DoubleSide} />
       </mesh>

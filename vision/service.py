@@ -56,8 +56,7 @@ COLOURS = {
 
 _frame_lock = threading.Lock()
 _latest_jpeg: bytes | None = None
-_state = {"fps": 0.0, "detections": [], "source": "", "simulated": False,
-          "backend": "loading"}
+_state = {"detections": [], "source": "", "simulated": False, "backend": "loading"}
 
 
 def _annotate(frame: np.ndarray, dets: list[dict], fps: float, source: str) -> np.ndarray:
