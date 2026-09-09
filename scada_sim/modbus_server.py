@@ -61,8 +61,9 @@ EXC_ILLEGAL_VALUE = 0x03
 # That alone saturated this bridge's 1 s poll loop.
 API = "http://127.0.0.1:8010/api"
 
-# THE REGISTER MAP. Single source of truth: the server writes from it and
-# docs/scada-register-map is generated from it, so they cannot drift apart.
+# THE REGISTER MAP -- the authoritative one. `main()` prints it at startup, so
+# the integrator's copy comes from the running server rather than a doc that can
+# drift. test_modbus.py asserts it has no gaps or duplicate addresses.
 # (address, name, scale, description)
 REGISTERS: list[tuple[int, str, float, str]] = [
     (0,  "HEALTH_OVERALL",   1,   "Fused belt health index, 0-100"),

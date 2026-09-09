@@ -182,8 +182,12 @@ Outside the repo (NOT synced by OneDrive), created by vision/paths.py:
 
 ## 10. Demo Narrative (for SIH presentation)
 
+- **Current honest status (2026-09-09): feature-complete for the no-hardware phase.** All 11 checklist items in Section 4 are done. The authoritative honesty statement now lives in **`docs/real-vs-simulated.md`** — that is the document to read before pitching, not this bullet.
+- One-line version: *the AI models are real and trained on real data; the sensor readings are simulated, and the system says so on screen, on the wire, and in every alert.*
+- The three caveats to say out loud before a judge finds them: **belt_joint mAP50 0.995 is n=7**; **CWRU 100% is an easy seeded-defect benchmark**; **the demo timeline is accelerated 672x**.
+
 - What is genuinely working live vs. simulated must always be stated honestly here, so the pitch never overclaims.
-- **Current honest status (2026-09-04):** Repo scaffolded on its own git repo. Sensor simulation layer **built and passing 7 physics self-checks** — vibration/temperature/load/speed/acoustic driven by one shared belt model, every reading structurally flagged `simulated=True`. Vision datasets verified via API and licensing confirmed (CC BY 4.0). **Not yet running:** no model trained, no MQTT bus, no backend, no dashboard. Nothing is being presented as real hardware data.
+- **Superseded status (2026-09-04):** Repo scaffolded on its own git repo. Sensor simulation layer **built and passing 7 physics self-checks** — vibration/temperature/load/speed/acoustic driven by one shared belt model, every reading structurally flagged `simulated=True`. Vision datasets verified via API and licensing confirmed (CC BY 4.0). **Not yet running:** no model trained, no MQTT bus, no backend, no dashboard. Nothing is being presented as real hardware data.
 
 ---
 
