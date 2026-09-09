@@ -47,6 +47,7 @@
 - [x] **Real-time dashboard** — Vite+React+Tailwind, live WebSocket, health gauge, streaming charts, MJPEG camera, evidence panel, RUL
 - [x] **Digital twin** — react-three-fiber, troughed belt geometry driven by live telemetry (belt scrolls at measured speed, splice tracks real belt phase, idler colour = bearing health)
 - [x] **SCADA/PLC integration** — hand-written Modbus/TCP server (12-register map), polls the backend at 1 Hz; 8 checks incl. a real pymodbus client reading it over TCP
+- [x] **Notification / escalation** — `backend/notify.py`, stdlib SMTP, deadbanded state transitions carrying the fusion evidence; 8 checks. Unconfigured SMTP is a supported, clearly-declared mode
 - [x] **Abstraction layer** — `DataSource` ABC + required `Reading.simulated` flag
 
 ## 5. Tech Stack Decisions Log
@@ -123,6 +124,9 @@
 - **2026-09-09 — Register map design: HEARTBEAT and DATA_VALID are deliberately separate.** The heartbeat proves the bridge is alive; DATA_VALID proves the numbers are fresh. On losing the backend the bridge reports `ALARM_STATE=NO_DATA`, `DATA_VALID=0`, `RUL_DAYS=65535` and keeps the beat ticking, rather than leaving stale values a PLC would act on. `RUL_DAYS=65535` means unknown, kept distinct from `0` which would mean "failing now".
 - **2026-09-09 — PERFORMANCE BUG: `localhost` costs ~2 s per request on this host.** Every backend endpoint measured a uniform ~2,050 ms, which saturated the SCADA bridge's 1 Hz poll loop. Cause: `localhost` resolves to `::1` first while uvicorn binds IPv4 only, so each request waits out an IPv6 connection failure before falling back. **`127.0.0.1` measures 15 ms — 136x faster.** All Python HTTP clients now use `127.0.0.1` explicitly. Worth knowing before blaming any future latency on the backend.
 - **2026-09-09 — BUG: `asyncio.create_task()` without keeping a reference.** The SCADA poller was garbage-collected mid-run; the heartbeat froze while the server kept serving stale registers — the exact failure the heartbeat exists to expose. The task handle is now retained, and the poll loop catches all exceptions and degrades to NO_DATA rather than dying silently.
+
+- **2026-09-09 — Alerts carry evidence, and have NO time-based rate limit.** The mail includes the top contributing indicators from the fusion layer, because "CRITICAL, health 32" is not actionable while "bearing housing 84 C" tells a fitter what to bring. The first version had a 5-minute rate limit on top of the deadband; it silently swallowed the "recovered" notice, leaving anyone who got the CRITICAL mail believing the belt was still down. The deadband plus "alert once per confirmed transition" already make spam impossible, so the timer was deleted rather than special-cased.
+- **2026-09-09 — Unconfigured SMTP is a supported mode, not an error.** With no mail server the alert is logged and recorded with `delivered=False`, and `/api/alerts` reports `smtp_configured`. The escalation path is demonstrable in a demo without pretending mail was sent. Alerts generated from simulated sources say `[SIMULATED DATA]` in both subject and body, so an alert can never imply a real belt is failing.
 
 ## 8. Known Blockers / Open Questions
 

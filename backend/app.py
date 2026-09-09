@@ -28,6 +28,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 from .fusion import evaluate, score
+from .notify import Notifier
 from .store import Store
 
 LINE = "nmdc-line-a"
@@ -37,6 +38,7 @@ VISION_WINDOW_S = 6.0     # aggregation window for persistence
 VISION_PERSISTENCE = 0.4  # a defect must appear in >=40% of recent frames to count
 
 store = Store()
+notifier = Notifier()
 
 # Newest reading per sensor kind. Written by the MQTT thread, read by the
 # broadcast task. Plain dict assignment is atomic under the GIL and we only
@@ -46,6 +48,8 @@ latest: dict[str, dict] = {}
 vision_window: deque[tuple[float, list[dict]]] = deque()
 vision_simulated = True
 clients: set[WebSocket] = set()
+# In-flight alert-send tasks, held so the loop cannot collect them mid-send.
+_pending: set[asyncio.Task] = set()
 stats = {"messages": 0, "connected": False, "last_msg_ts": 0.0}
 
 
@@ -152,6 +156,17 @@ async def _broadcast_loop() -> None:
         # during SCADA work -- that was an IPv6 `localhost` fallback -- but
         # blocking the loop on a lock a query thread may hold is still wrong.)
         await asyncio.to_thread(store.add_health, LINE, h)
+
+        # Escalation. observe() is cheap and pure; only the SMTP round-trip
+        # goes to a thread, and a failure there must not stop the broadcast.
+        # The task handle is retained until it finishes: the event loop only
+        # holds tasks weakly, so a bare create_task can be garbage-collected
+        # mid-send (this exact bug froze the SCADA poller's heartbeat).
+        if (alert := notifier.observe(h)) is not None:
+            t = asyncio.create_task(asyncio.to_thread(notifier.send, alert))
+            _pending.add(t)
+            t.add_done_callback(_pending.discard)
+
         frame = json.dumps({
             "type": "tick",
             "ts": time.time(),
@@ -218,6 +233,21 @@ def health_history(minutes: float = 30):
 @app.get("/api/history/{kind}")
 def history(kind: str, minutes: float = 30):
     return store.history(kind, minutes)
+
+
+@app.get("/api/alerts")
+def alerts():
+    """Recent escalations, and whether they were actually delivered."""
+    return {
+        "smtp_configured": notifier.configured,
+        "recipients": notifier.to if notifier.configured else [],
+        "current_state": notifier.confirmed,
+        "alerts": [
+            {"ts": a.ts, "from": a.from_state, "to": a.to_state, "health": a.health,
+             "subject": a.subject, "reasons": a.reasons, "delivered": a.delivered}
+            for a in reversed(notifier.log)
+        ],
+    }
 
 
 @app.get("/api/rul")
