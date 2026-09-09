@@ -35,8 +35,9 @@ function Idler({ x, health, monitored }: { x: number; health: number; monitored:
       </mesh>
       {monitored && (
         <Html center distanceFactor={5} position={[0, -0.5, 0]}>
-          <div className="tnum rounded border px-1 py-px text-[8px] whitespace-nowrap"
-               style={{ borderColor: col, color: col, background: 'rgba(15,23,42,0.92)' }}>
+          <div className="tnum rounded-full px-1.5 py-px text-[8px] whitespace-nowrap"
+               style={{ color: col, background: 'rgba(8,11,22,0.88)',
+                        boxShadow: `inset 0 0 0 0.5px ${col}` }}>
             idler-04
           </div>
         </Html>
@@ -98,10 +99,12 @@ function Belt({ frame }: { frame: Frame | null }) {
         </mesh>
       ))}
 
-      {/* The splice: the thing this whole project exists to watch, so it is
-          the one object made of real glass. MeshTransmissionMaterial actually
-          refracts the scene behind it, which ties the twin to the same visual
-          language as the panels rather than being a coloured quad. */}
+      {/* The splice: the thing this whole project exists to watch, so it is the
+          one object made of real glass -- native three transmission + clearcoat,
+          which ties the twin to the same material language as the panels rather
+          than being a coloured quad. drei's MeshTransmissionMaterial looks
+          better still but pulled in the Environment dependency that broke the
+          canvas, and correctness beat the extra fidelity. */}
       <mesh ref={spliceRef} position={[0, 0.05, 0]}>
         <boxGeometry args={[0.26, 0.1, BELT_W + 0.05]} />
         <meshPhysicalMaterial
@@ -200,32 +203,39 @@ export function CameraFeed({ frame }: { frame: Frame | null }) {
   const dets = frame?.vision?.detections ?? []
   return (
     <div className="flex h-full flex-col">
-      <div className="relative flex h-[190px] flex-1 items-center justify-center overflow-hidden bg-black lg:h-auto lg:min-h-[170px]">
+      <div className="plate relative mx-3 flex h-[190px] flex-1 items-center justify-center overflow-hidden bg-black/60 lg:h-auto lg:min-h-[170px]">
         {live ? (
           <img src="/stream" alt="Live belt inspection camera with defect detections"
                className="h-full w-full object-contain" onError={() => setLive(false)} />
         ) : (
           <div className="px-4 py-8 text-center">
             <p className="text-[12px] text-[var(--color-fg-muted)]">Vision service offline</p>
-            <p className="mt-1 text-[10px] text-[var(--color-fg-dim)]">
-              start it with:<br />
+            <p className="mt-2 text-[10px] leading-relaxed text-[var(--color-fg-dim)]">
+              start it with<br />
               <code className="text-[var(--color-info)]">python -m vision.service --source testset --loop</code>
             </p>
             <button onClick={() => setLive(true)}
-                    className="mt-3 cursor-pointer rounded border border-[rgba(255,255,255,0.16)] px-2 py-1 text-[10px] text-[var(--color-fg-muted)] transition-colors duration-200 hover:border-[var(--color-info)] hover:text-[var(--color-info)]">
+                    className="mt-4 cursor-pointer rounded-full px-4 py-1.5 text-[10px] font-600 tracking-[0.06em] text-[var(--color-fg)] uppercase transition-all duration-200 hover:brightness-125"
+                    style={{ background: 'rgba(10,132,255,0.22)',
+                             boxShadow: 'inset 0 0 0 0.5px rgba(10,132,255,0.6), inset 0 1px 0 rgba(255,255,255,0.2)' }}>
               Retry
             </button>
           </div>
         )}
       </div>
-      <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-t border-[rgba(255,255,255,0.08)] px-2.5 py-1.5">
+      <div className="flex shrink-0 flex-wrap items-center gap-1.5 px-4 py-2.5">
         {dets.length === 0 ? (
           <span className="text-[10px] text-[var(--color-fg-dim)]">no defects in frame</span>
         ) : (
           dets.slice(0, 5).map((d, i) => (
             <span key={i}
-                  className="tnum rounded border border-[rgba(255,255,255,0.16)] px-1.5 py-0.5 text-[10px]"
-                  style={{ color: d.cls === 'belt_joint' ? 'var(--color-info)' : 'var(--color-warn)' }}>
+                  className="tnum rounded-full px-2 py-[3px] text-[9.5px] font-500"
+                  style={{
+                    color: d.cls === 'belt_joint' ? 'var(--color-info)' : 'var(--color-warn)',
+                    background: d.cls === 'belt_joint'
+                      ? 'rgba(10,132,255,0.16)' : 'rgba(255,159,10,0.16)',
+                    boxShadow: 'inset 0 0 0 0.5px currentColor',
+                  }}>
               {d.cls} {(d.conf * 100).toFixed(0)}%
             </span>
           ))

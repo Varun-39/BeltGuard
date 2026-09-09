@@ -222,16 +222,16 @@ export function Evidence({ reasons }: { reasons: Reasons[] }) {
                      animate={{ opacity: 1, x: 0 }}
                      exit={{ opacity: 0, x: 10, transition: EASE_EXIT }}
                      transition={EASE_OUT}
-                     className="px-3 py-2">
+                     className="px-4 py-2.5">
             <div className="flex items-start justify-between gap-2">
-              <span className="text-[12px] leading-snug text-[var(--color-fg)]">{r.message}</span>
+              <span className="text-[12.5px] leading-snug font-450 text-[var(--color-fg)]">{r.message}</span>
               <Badge tone={tone as 'crit' | 'warn' | 'neutral'}>{SUB[r.subsystem] ?? r.subsystem}</Badge>
             </div>
             {/* The standard behind the threshold, so the number is auditable. */}
-            <p className="mt-1 text-[10.5px] leading-snug text-[var(--color-fg-dim)]">{r.basis}</p>
-            <div className="mt-1.5 h-[3px] overflow-hidden rounded-full bg-[rgba(255,255,255,0.09)]">
+            <p className="mt-1.5 text-[10.5px] leading-relaxed text-[var(--color-fg-dim)]">{r.basis}</p>
+            <div className="mt-2 h-[4px] overflow-hidden rounded-full bg-[rgba(255,255,255,0.08)]">
               <motion.div className="h-full w-full origin-left rounded-full"
-                          style={{ background: col }}
+                          style={{ background: col, boxShadow: `0 0 10px -1px ${col}` }}
                           initial={false}
                           animate={{ scaleX: Math.max(0.02, r.severity) }}
                           transition={SPRING} />
@@ -262,7 +262,7 @@ export function RulPanel({ rul }: { rul: Rul | null }) {
     : tone === 'warn' ? 'var(--color-warn)' : 'var(--color-ok)'
 
   return (
-    <div className="flex flex-col gap-2 px-3 py-3">
+    <div className="flex flex-col gap-2.5 px-4 pt-1 pb-4">
       <div className="flex items-baseline gap-2">
         <span className="tnum text-[30px] leading-none font-600" style={{ color: col }}>
           {days === null ? 'PAST' : <AnimatedNumber value={days} decimals={1} />}
@@ -349,9 +349,9 @@ export function ActionPanel({ health, rul }: { health: Health; rul: Rul | null }
   const col = urgent ? 'var(--color-crit)' : 'var(--color-warn)'
 
   return (
-    <div className="flex flex-col gap-2 px-3 py-2.5">
+    <div className="flex flex-col gap-3 px-4 pt-1 pb-4">
       <div>
-        <p className="text-[13px] leading-snug font-500" style={{ color: col }}>{a.do_}</p>
+        <p className="text-[14px] leading-snug font-600 tracking-[-0.01em]" style={{ color: col }}>{a.do_}</p>
         <p className="mt-0.5 text-[10.5px] text-[var(--color-fg-muted)]">{a.where}</p>
       </div>
 
@@ -411,7 +411,7 @@ export function EventLog({ events, smtp }: { events: Evt[]; smtp: boolean }) {
                      animate={{ opacity: 1, y: 0 }}
                      exit={{ opacity: 0, transition: EASE_EXIT }}
                      transition={EASE_OUT}
-                     className="px-3 py-1.5">
+                     className="px-4 py-2">
             <div className="flex items-baseline gap-2">
               <span className="tnum shrink-0 text-[10px] text-[var(--color-fg-dim)]">
                 {new Date(e.ts * 1000).toLocaleTimeString([], {
@@ -449,7 +449,7 @@ export function SourceBar({ frame }: { frame: Frame | null }) {
   if (!frame) return null
   const anySim = Object.values(frame.health.sources ?? {}).some((s) => s.simulated)
   return (
-    <div className="flex flex-wrap items-center gap-1.5 px-3 py-2">
+    <div className="flex flex-wrap items-center gap-1.5 px-4 pt-1 pb-3.5">
       {Object.entries(frame.health.sources ?? {}).map(([kind, s]) => (
         <Badge key={kind} tone={s.simulated ? 'warn' : 'ok'} title={s.sensor_id}>
           {kind} · {s.simulated ? 'sim' : 'real'}
