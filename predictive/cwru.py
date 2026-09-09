@@ -201,9 +201,23 @@ def main() -> None:
         det = (iso.predict(scaler.transform(X[m])) == -1).mean()
         print(f"      {n:<12} caught ....... {det*100:5.1f}%")
 
+    # Self-check. This module carries the project's strongest claim -- that our
+    # indicators separate REAL faults -- so it must fail loudly if that stops
+    # being true, rather than quietly printing worse numbers nobody rereads.
+    ki = FEATURES.index("kurtosis")
+    normal_kurt = X[y == normal_idx, ki].mean()
+    outer_kurt = X[y == names.index("outer_race"), ki].mean()
+    assert outer_kurt > normal_kurt * 1.5, (
+        f"kurtosis no longer separates real outer-race faults "
+        f"(normal {normal_kurt:.2f} vs outer {outer_kurt:.2f})")
+    assert honest > 0.90, f"held-out-load accuracy collapsed to {honest:.3f}"
+    assert fa < 0.15, f"false-alarm rate on healthy data is {fa:.1%}"
+    assert len(X) > 1000, f"only {len(X)} windows; a download probably failed"
+
     print("\n  -> REAL bearing recordings, not our simulator. The same indicators")
     print("     the fusion layer scores are what separate the classes, and they")
     print("     hold up on an operating condition the model never trained on.")
+    print("\n  4 self-checks passed.")
 
 
 if __name__ == "__main__":

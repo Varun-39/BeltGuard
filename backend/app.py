@@ -125,9 +125,8 @@ def _current_vision() -> dict | None:
             "cls": cls,
             "conf": 0.9,
             "area_frac": areas[len(areas) // 2],      # median, not max
-            "seen_in": round(len(areas) / frames, 2),
         })
-    return {"detections": out, "frames_considered": frames}
+    return {"detections": out}
 
 
 def current_health() -> dict:
@@ -244,7 +243,8 @@ def alerts():
         "current_state": notifier.confirmed,
         "alerts": [
             {"ts": a.ts, "from": a.from_state, "to": a.to_state, "health": a.health,
-             "subject": a.subject, "reasons": a.reasons, "delivered": a.delivered}
+             "subject": a.subject, "reasons": a.reasons,
+             "notified": a.notified, "delivered": a.delivered}
             for a in reversed(notifier.log)
         ],
     }

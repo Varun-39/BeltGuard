@@ -91,7 +91,7 @@ export default function App() {
   const [paused, setPaused] = useState(false)
   const { frame, series, connected } = useLive(paused)
   const rul = useRul(connected)
-  const events = useEvents(connected)
+  const { events, smtp } = useEvents(connected)
 
   const health = frame?.health
   const state = stateFor(health?.overall)
@@ -167,7 +167,7 @@ export default function App() {
             </Panel>
             <Panel title="Event Log" className="min-h-[140px] lg:flex-[0.8]"
                    right={<Badge>{events.length}</Badge>}>
-              <EventLog events={events} />
+              <EventLog events={events} smtp={smtp} />
             </Panel>
             <Panel title="Data Sources">
               <SourceBar frame={frame} />

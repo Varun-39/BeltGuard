@@ -356,40 +356,60 @@ export function ActionPanel({ health, rul }: { health: Health; rul: Rul | null }
   )
 }
 
-/** Alarm log. Answers "when did this start", which the live view cannot. */
-export function EventLog({ events }: { events: Evt[] }) {
+/** Alarm log. Answers "when did this start", which the live view cannot, and
+ *  "was anyone actually told", which matters more. */
+export function EventLog({ events, smtp }: { events: Evt[]; smtp: boolean }) {
   if (!events.length) {
     return (
-      <div className="flex h-full items-center justify-center px-4 py-6 text-center">
+      <div className="flex h-full flex-col items-center justify-center gap-1 px-4 py-6 text-center">
         <p className="text-[11px] text-[var(--color-fg-dim)]">No state changes recorded</p>
+        {!smtp && (
+          <p className="text-[9.5px] text-[var(--color-fg-dim)]">
+            SMTP not configured — alerts will be logged, not emailed
+          </p>
+        )}
       </div>
     )
   }
+  const RANK: Record<string, number> = { NORMAL: 0, WARNING: 1, CRITICAL: 2 }
   return (
     <ul className="flex flex-col divide-y divide-[var(--color-border)] overflow-y-auto">
       {events.map((e, i) => {
-        const s = STATE[e.to as keyof typeof STATE] ?? STATE.NO_DATA
-        const worse = ['NORMAL', 'WARNING', 'CRITICAL'].indexOf(e.to) >
-                      ['NORMAL', 'WARNING', 'CRITICAL'].indexOf(e.from)
+        const st = STATE[e.to as keyof typeof STATE] ?? STATE.NO_DATA
+        const worse = (RANK[e.to] ?? 0) > (RANK[e.from] ?? 0)
         return (
-          <li key={`${e.ts}-${i}`} className="flex items-baseline gap-2 px-3 py-1.5">
-            <span className="tnum shrink-0 text-[10px] text-[var(--color-fg-dim)]">
-              {new Date(e.ts * 1000).toLocaleTimeString([], {
-                hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-            </span>
-            <span aria-hidden className="shrink-0 text-[9px]" style={{ color: s.color }}>
-              {worse ? '▲' : '▼'}
-            </span>
-            <span className="text-[11px] leading-snug text-[var(--color-fg-muted)]">
-              {e.from} <span className="text-[var(--color-fg-dim)]">&rarr;</span>{' '}
-              <span style={{ color: s.color }}>{e.to}</span>
-            </span>
+          <li key={`${e.ts}-${i}`} className="px-3 py-1.5">
+            <div className="flex items-baseline gap-2">
+              <span className="tnum shrink-0 text-[10px] text-[var(--color-fg-dim)]">
+                {new Date(e.ts * 1000).toLocaleTimeString([], {
+                  hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+              </span>
+              <span aria-hidden className="shrink-0 text-[9px]" style={{ color: st.color }}>
+                {worse ? '▲' : '▼'}
+              </span>
+              <span className="text-[11px] leading-snug text-[var(--color-fg-muted)]">
+                {e.from} <span className="text-[var(--color-fg-dim)]">&rarr;</span>{' '}
+                <span style={{ color: st.color }}>{e.to}</span>
+              </span>
+              {e.notified && (
+                <span className="ml-auto shrink-0 text-[9px] tracking-wider uppercase"
+                      style={{ color: e.delivered ? 'var(--color-ok)' : 'var(--color-fg-dim)' }}>
+                  {e.delivered ? 'emailed' : 'logged'}
+                </span>
+              )}
+            </div>
+            {e.reasons?.[0] && (
+              <p className="mt-0.5 pl-[62px] text-[10px] leading-snug text-[var(--color-fg-dim)]">
+                {e.reasons[0]}
+              </p>
+            )}
           </li>
         )
       })}
     </ul>
   )
 }
+
 
 export function SourceBar({ frame }: { frame: Frame | null }) {
   if (!frame) return null

@@ -35,8 +35,7 @@ from dataclasses import dataclass, asdict
 
 import numpy as np
 
-# Health-score thresholds the projection aims at, matching fusion.score().
-WARNING_LEVEL = 80
+# The threshold the projection aims at, matching fusion.score().
 CRITICAL_LEVEL = 50
 
 MIN_POINTS = 12          # below this a slope is noise
@@ -46,7 +45,6 @@ MIN_SLOPE = 0.02         # health points lost per hour worth extrapolating
 @dataclass
 class RulEstimate:
     trend_per_hour: float          # health points lost per hour (positive = degrading)
-    hours_to_warning: float | None
     hours_to_critical: float | None
     ci_low_hours: float | None     # optimistic / pessimistic bounds on time-to-critical
     ci_high_hours: float | None
@@ -91,7 +89,7 @@ def estimate(ts_seconds: np.ndarray, health: np.ndarray,
     ts = np.asarray(ts_seconds, dtype=float)
     hv = np.asarray(health, dtype=float)
     if len(ts) < MIN_POINTS:
-        return RulEstimate(0.0, None, None, None, None, 0.0, "none",
+        return RulEstimate(0.0, None, None, None, 0.0, "none",
                            f"only {len(ts)} samples; need {MIN_POINTS}")
 
     hours = (ts - ts[0]) / 3600.0
@@ -110,7 +108,7 @@ def estimate(ts_seconds: np.ndarray, health: np.ndarray,
     # keeps the trend and discards the jitter.
     t, h = _bin_median(t, h)
     if len(t) < 4:
-        return RulEstimate(0.0, None, None, None, None, 0.0, "none",
+        return RulEstimate(0.0, None, None, None, 0.0, "none",
                            "not enough distinct time buckets to fit a trend")
 
     slope, intercept = np.polyfit(t, h, 1)
@@ -124,7 +122,7 @@ def estimate(ts_seconds: np.ndarray, health: np.ndarray,
 
     if decline < MIN_SLOPE:
         return RulEstimate(
-            round(decline, 4), None, None, None, None, round(r2, 3), "none",
+            round(decline, 4), None, None, None, round(r2, 3), "none",
             "health is stable or improving -- no meaningful degradation trend")
 
     def hours_to(level: float) -> float | None:
@@ -150,7 +148,6 @@ def estimate(ts_seconds: np.ndarray, health: np.ndarray,
         # 4 dp, not 2: under the demo's accelerated fault ramp these are
         # hundredths of an hour, and rounding to 2 dp collapsed the confidence
         # bounds onto the same number ("95% CI 0.6-0.6 days").
-        hours_to_warning=None if (w := hours_to(WARNING_LEVEL)) is None else round(w, 4),
         hours_to_critical=None if crit is None else round(crit, 4),
         ci_low_hours=round(min(ci_low, ci_high), 4),
         ci_high_hours=round(max(ci_low, ci_high), 4),

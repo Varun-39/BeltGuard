@@ -62,6 +62,7 @@ class Alert:
     subject: str
     body: str
     delivered: bool           # False when SMTP is not configured
+    notified: bool = False    # False for transitions logged but not worth a mail
     reasons: list[str] = field(default_factory=list)
 
 
@@ -112,16 +113,17 @@ class Notifier:
         previous, self.confirmed = self.confirmed, state
         self._candidate, self._streak = None, 0
 
-        escalating = RANK[state] > RANK[previous]
-        recovered = state == "NORMAL"
-        if not (escalating or recovered):
-            return None                       # WARNING after CRITICAL: no mail
-
+        # EVERY confirmed transition is logged; only escalations and full
+        # recoveries are worth a mail. The dashboard's event log reads this same
+        # list, so the deadband rule lives in exactly one place -- it used to be
+        # implemented a second time in TypeScript, which was a drift waiting to
+        # happen.
         now = time.time()
         alert = self._compose(previous, state, health, now)
+        alert.notified = RANK[state] > RANK[previous] or state == "NORMAL"
         self.log.append(alert)
         del self.log[:-50]
-        return alert
+        return alert if alert.notified else None
 
     def _compose(self, previous: str, state: str, health: dict, now: float) -> Alert:
         reasons = [r["message"] for r in health.get("reasons", [])[:4]]

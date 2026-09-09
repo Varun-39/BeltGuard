@@ -32,7 +32,6 @@ export type Frame = {
 export type Rul = {
   confidence: string
   basis: string
-  method?: string
   trend_per_hour?: number
   hours_to_critical: number | null
   ci_low_hours?: number | null
@@ -97,38 +96,36 @@ export function useLive(paused: boolean) {
   return { frame, series, connected }
 }
 
-export type Evt = { ts: number; kind: 'state'; from: string; to: string }
+export type Evt = {
+  ts: number
+  from: string
+  to: string
+  health: number
+  reasons: string[]
+  notified: boolean      // did this transition warrant an alert
+  delivered: boolean     // was that alert actually sent (false if no SMTP)
+}
 
-/** Alarm log, derived client-side from health history the backend already
- *  stores. No new table and no new endpoint -- a state transition is just a
- *  change between consecutive rows of /api/health/history. */
+/** Alarm log, read from the backend.
+ *
+ *  This used to re-derive state transitions from health history client-side,
+ *  with its own copy of the deadband rule. The backend's notifier already
+ *  computes confirmed transitions to decide what to escalate, so this now reads
+ *  that list instead -- one implementation of the rule, and the log gains
+ *  whether each transition actually reached a human. */
 export function useEvents(enabled: boolean) {
   const [events, setEvents] = useState<Evt[]>([])
+  const [smtp, setSmtp] = useState(false)
   useEffect(() => {
     if (!enabled) return
     let alive = true
     const load = () =>
-      fetch('/api/health/history?minutes=60')
+      fetch('/api/alerts')
         .then((r) => r.json())
-        .then((rows: { ts: number; state: string }[]) => {
+        .then((d) => {
           if (!alive) return
-          // Deadband: a new state must hold for HOLD consecutive samples before
-          // it counts as a transition. Health hovering on a threshold otherwise
-          // fills the log with WARNING->NORMAL->WARNING noise, which is the
-          // classic way an alarm list becomes something operators ignore.
-          const HOLD = 4
-          const out: Evt[] = []
-          let confirmed = rows[0]?.state
-          for (let i = 1; i < rows.length; i++) {
-            const s2 = rows[i].state
-            if (s2 === confirmed) continue
-            const holds = rows.slice(i, i + HOLD)
-            if (holds.length === HOLD && holds.every((r) => r.state === s2)) {
-              out.push({ ts: rows[i].ts, kind: 'state', from: confirmed, to: s2 })
-              confirmed = s2
-            }
-          }
-          setEvents(out.reverse().slice(0, 40))   // newest first
+          setEvents(d.alerts ?? [])
+          setSmtp(Boolean(d.smtp_configured))
         })
         .catch(() => {})
     load()
@@ -138,7 +135,7 @@ export function useEvents(enabled: boolean) {
       clearInterval(id)
     }
   }, [enabled])
-  return events
+  return { events, smtp }
 }
 
 /** RUL refits a trend over stored history, so it is polled slowly rather than
