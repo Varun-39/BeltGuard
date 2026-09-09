@@ -7,15 +7,15 @@
 @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Fira+Sans:wght@300;400;500;600;700&display=swap');
 
 @theme {
-  --color-bg: #0f172a;
-  --color-panel: #1b2336;
-  --color-panel-2: #212a40;
-  --color-muted: #272f42;
-  --color-border: #313d57;
-  --color-border-strong: #475569;
-  --color-fg: #f8fafc;
-  --color-fg-muted: #94a3b8;
-  --color-fg-dim: #64748b;
+  --color-bg: #0b1120;
+  --color-panel: #141c2e;
+  --color-panel-2: #1a2337;
+  --color-muted: #232d44;
+  --color-border: #263149;
+  --color-border-strong: #3a486a;
+  --color-fg: #f1f5f9;
+  --color-fg-muted: #93a3bd;
+  --color-fg-dim: #5f6f8c;
 
   /* Status. Never used alone to convey state -- every status also carries a
      label and an icon, per the chart-accessibility guidance. */
@@ -40,10 +40,17 @@ body,
 
 body {
   margin: 0;
-  background: var(--color-bg);
   color: var(--color-fg);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  /* Two very low-contrast radial washes. A flat fill reads as a web page; a
+     faint pool of light behind the content reads as a lit instrument panel.
+     Kept under 6% so it never competes with the data. */
+  background:
+    radial-gradient(1100px 600px at 18% -10%, rgba(56, 189, 248, 0.055), transparent 60%),
+    radial-gradient(900px 520px at 88% 8%, rgba(99, 102, 241, 0.045), transparent 60%),
+    var(--color-bg);
+  background-attachment: fixed;
 }
 
 /* Telemetry digits must not shift width as values change. */
@@ -52,20 +59,51 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* Panel surfacing: a 1px inner top highlight plus a soft drop shadow. This is
+   how a physical instrument bezel catches light, and it separates stacked
+   panels far more cheaply than borders alone. */
+.panel {
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.045),
+    0 1px 2px rgba(0, 0, 0, 0.35),
+    0 8px 24px -16px rgba(0, 0, 0, 0.7);
+}
+
 /* Faint scanline texture. Industrial panels read as flat plastic without a
-   little surface noise; kept under 2% opacity so it never fights the data. */
-.panel-tex {
+   little surface noise; kept near-invisible so it never fights the data. */
+.panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
   background-image: repeating-linear-gradient(
     0deg,
-    rgba(255, 255, 255, 0.014) 0px,
-    rgba(255, 255, 255, 0.014) 1px,
+    rgba(255, 255, 255, 0.012) 0px,
+    rgba(255, 255, 255, 0.012) 1px,
     transparent 1px,
     transparent 3px
   );
 }
 
+/* CRITICAL alarm treatment: a slow red breathing edge on the whole viewport.
+   Deliberately at the frame rather than on a panel -- it must be readable from
+   across a room, at an angle, by someone not looking directly at the screen,
+   which is the actual condition of a control room. */
+@keyframes alarm-edge {
+  0%, 100% { box-shadow: inset 0 0 0 0 rgba(239, 68, 68, 0); }
+  50% { box-shadow: inset 0 0 46px -6px rgba(239, 68, 68, 0.42); }
+}
+.alarm-critical::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
+  animation: alarm-edge 2.6s ease-in-out infinite;
+}
+
 @keyframes pulse-ring {
-  0% { box-shadow: 0 0 0 0 currentColor; opacity: 0.55; }
+  0% { box-shadow: 0 0 0 0 currentColor; opacity: 0.5; }
   70% { box-shadow: 0 0 0 7px transparent; opacity: 0; }
   100% { box-shadow: 0 0 0 0 transparent; opacity: 0; }
 }
@@ -77,13 +115,14 @@ body {
   animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
-::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar { width: 7px; height: 7px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #33405c; border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: #475569; }
+::-webkit-scrollbar-thumb { background: #2e3a56; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-border-strong); }
 
-/* Respect the OS setting: a control room operator who has asked for reduced
-   motion should not get a pulsing alarm dot. */
+/* Respect the OS setting. An operator who asked for no motion gets final
+   states immediately -- including the alarm edge, which becomes a static
+   border rather than a pulse so the CRITICAL signal is not lost with it. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -91,5 +130,8 @@ body {
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
+  }
+  .alarm-critical::after {
+    box-shadow: inset 0 0 40px -8px rgba(239, 68, 68, 0.38);
   }
 }

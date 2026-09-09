@@ -5,6 +5,7 @@ import {
   ActionPanel, Channel, EventLog, Evidence, HealthTrend, RulPanel, SourceBar,
 } from './components/Telemetry'
 import { CameraFeed, DigitalTwin } from './components/Twin'
+import { AnimatedNumber, PulseOnChange, Reveal, Trend, motion } from './components/motion'
 
 function Header({
   connected, state, paused, onPause, simulated,
@@ -34,15 +35,19 @@ function Header({
         </div>
       </div>
 
-      {/* Status is the loudest thing in the room, and never colour-only. */}
-      <div className="flex items-center gap-2 rounded-md border px-2.5 py-1"
-           style={{ borderColor: `color-mix(in srgb, ${s.color} 45%, transparent)`,
-                    background: `color-mix(in srgb, ${s.color} 9%, transparent)` }}>
-        <span aria-hidden style={{ color: s.color }} className="text-[11px]">{s.glyph}</span>
-        <span className="text-[12px] font-600 tracking-[0.1em]" style={{ color: s.color }}>
-          {s.label}
-        </span>
-      </div>
+      {/* Status is the loudest thing in the room, and never colour-only.
+          It pulses on change so an escalation registers even if the operator
+          was looking at another panel when it happened. */}
+      <PulseOnChange trigger={state} color={`color-mix(in srgb, ${s.color} 55%, transparent)`}>
+        <div className="flex items-center gap-2 rounded-md border px-3 py-1.5"
+             style={{ borderColor: `color-mix(in srgb, ${s.color} 45%, transparent)`,
+                      background: `color-mix(in srgb, ${s.color} 10%, transparent)` }}>
+          <span aria-hidden style={{ color: s.color }} className="text-[11px]">{s.glyph}</span>
+          <span className="text-[12px] font-600 tracking-[0.12em]" style={{ color: s.color }}>
+            {s.label}
+          </span>
+        </div>
+      </PulseOnChange>
 
       <div className="ml-auto flex items-center gap-2">
         {simulated && (
@@ -97,8 +102,10 @@ export default function App() {
   const state = stateFor(health?.overall)
   const simulated = Object.values(health?.sources ?? {}).some((s) => s.simulated)
 
+  // CRITICAL puts a slow breathing red edge on the whole viewport -- readable
+  // from across a room, which is the actual condition of a control room.
   return (
-    <div className="flex h-full flex-col bg-[var(--color-bg)]">
+    <div className={`flex h-full flex-col ${state === 'CRITICAL' ? 'alarm-critical' : ''}`}>
       <Header connected={connected} state={state} paused={paused}
               onPause={() => setPaused((p) => !p)} simulated={simulated} />
 
@@ -110,38 +117,43 @@ export default function App() {
                          lg:overflow-hidden">
           {/* LEFT: state at a glance */}
           <div className="flex flex-col gap-2.5 lg:min-h-0 lg:overflow-y-auto">
-            <Panel title="Belt Health"
+            <Reveal index={0}><Panel title="Belt Health"
                    right={<Badge tone={state === 'NORMAL' ? 'ok' : state === 'WARNING' ? 'warn' : 'crit'}>
                      {STATE[state].label}</Badge>}>
               <HealthGauge score={health!.overall} state={state} />
-            </Panel>
-            <Panel title="Subsystems">
+            </Panel></Reveal>
+            <Reveal index={1}><Panel title="Subsystems">
               <SubsystemBars subsystems={health!.subsystems} />
-            </Panel>
-            <Panel title="Predicted Life">
+            </Panel></Reveal>
+            <Reveal index={2}><Panel title="Predicted Life">
               <RulPanel rul={rul} />
-            </Panel>
-            <Panel title="Recommended Action" className="lg:flex-1">
-              <ActionPanel health={health!} rul={rul} />
-            </Panel>
+            </Panel></Reveal>
+            <Reveal index={3} className="lg:flex-1">
+              <Panel title="Recommended Action" className="h-full">
+                <ActionPanel health={health!} rul={rul} />
+              </Panel>
+            </Reveal>
           </div>
 
           {/* CENTRE: the belt itself */}
           <div className="flex flex-col gap-2.5 lg:min-h-0 lg:overflow-y-auto">
+            <Reveal index={1} className="min-h-[230px] lg:flex-[1.15]">
             <Panel title="Digital Twin"
                    right={<span className="tnum text-[10px] text-[var(--color-fg-dim)]">
                      {(frame.readings?.speed?.speed_mps ?? 0).toFixed(2)} m/s</span>}
-                   className="min-h-[230px] lg:flex-[1.15]">
+                   className="h-full">
               <DigitalTwin frame={frame} />
-            </Panel>
+            </Panel></Reveal>
 
-            <Panel title="Health Trend"
-                   right={rul?.hours_to_critical ? (
-                     <Badge tone="warn">projection</Badge>) : undefined}>
+            <Reveal index={2}><Panel title="Health Trend"
+                   right={<div className="flex items-center gap-2">
+                     <Trend value={health!.overall} />
+                     {rul?.hours_to_critical ? <Badge tone="warn">projection</Badge> : null}
+                   </div>}>
               <HealthTrend series={series} rul={rul} />
-            </Panel>
+            </Panel></Reveal>
 
-            <div className="grid shrink-0 grid-cols-2 gap-2.5 xl:grid-cols-4">
+            <Reveal index={3} className="grid shrink-0 grid-cols-2 gap-2.5 xl:grid-cols-4">
               <Channel series={series} label="Vibration RMS" unit="mm/s" color="var(--color-info)"
                        warn={2.8} pick={(f) => f.readings?.vibration?.rms_mm_s} />
               <Channel series={series} label="Kurtosis" unit="" color="#a78bfa" warn={6}
@@ -150,25 +162,30 @@ export default function App() {
                        warn={70} digits={1} pick={(f) => f.readings?.temperature?.temp_c} />
               <Channel series={series} label="Belt Tension" unit="kN" color="var(--color-ok)"
                        digits={1} pick={(f) => f.readings?.load?.tension_kn} />
-            </div>
+            </Reveal>
           </div>
 
           {/* RIGHT: camera + why */}
           <div className="flex flex-col gap-2.5 lg:min-h-0 lg:overflow-y-auto">
-            <Panel title="Inspection Camera"
-                   right={<Badge tone={health!.vision_active ? 'ok' : 'neutral'}>
-                     {health!.vision_active ? 'detecting' : 'offline'}</Badge>}
-                   className="min-h-[220px] lg:flex-[0.9]">
-              <CameraFeed frame={frame} />
-            </Panel>
-            <Panel title="Active Indicators" className="min-h-[160px] lg:flex-1"
-                   right={<Badge>{health!.reasons.length}</Badge>}>
-              <Evidence reasons={health!.reasons} />
-            </Panel>
-            <Panel title="Event Log" className="min-h-[140px] lg:flex-[0.8]"
-                   right={<Badge>{events.length}</Badge>}>
-              <EventLog events={events} smtp={smtp} />
-            </Panel>
+            <Reveal index={2} className="min-h-[220px] lg:flex-[0.9]">
+              <Panel title="Inspection Camera" className="h-full"
+                     right={<Badge tone={health!.vision_active ? 'ok' : 'neutral'}>
+                       {health!.vision_active ? 'detecting' : 'offline'}</Badge>}>
+                <CameraFeed frame={frame} />
+              </Panel>
+            </Reveal>
+            <Reveal index={3} className="min-h-[160px] lg:flex-1">
+              <Panel title="Active Indicators" className="h-full"
+                     right={<Badge>{health!.reasons.length}</Badge>}>
+                <Evidence reasons={health!.reasons} />
+              </Panel>
+            </Reveal>
+            <Reveal index={4} className="min-h-[140px] lg:flex-[0.8]">
+              <Panel title="Event Log" className="h-full"
+                     right={<Badge>{events.length}</Badge>}>
+                <EventLog events={events} smtp={smtp} />
+              </Panel>
+            </Reveal>
             <Panel title="Data Sources">
               <SourceBar frame={frame} />
             </Panel>

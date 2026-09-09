@@ -3,6 +3,8 @@ import {
 } from 'recharts'
 import type { Evt, Frame, Health, Reasons, Rul } from '../useLive'
 import { Badge, Panel, STATE, stateFor } from './Panels'
+import { AnimatedNumber, EASE_EXIT, EASE_OUT, SPRING, motion } from './motion'
+import { AnimatePresence } from 'motion/react'
 
 const AXIS = { stroke: 'var(--color-fg-dim)', fontSize: 10, fontFamily: 'Fira Code' }
 
@@ -27,14 +29,24 @@ export function Channel({
   const breached = warn !== undefined && latest !== undefined && latest >= warn
 
   return (
-    <div className="flex min-w-0 flex-col rounded border border-[var(--color-border)] bg-[var(--color-panel-2)] p-2">
+    <motion.div
+      className="panel flex min-w-0 flex-col rounded-md border bg-[var(--color-panel-2)] p-2"
+      animate={{
+        borderColor: breached
+          ? 'color-mix(in srgb, var(--color-warn) 55%, transparent)'
+          : 'var(--color-border)',
+      }}
+      transition={EASE_OUT}
+    >
       <div className="mb-1 flex items-baseline justify-between gap-2">
         <span className="truncate text-[10px] tracking-wider text-[var(--color-fg-muted)] uppercase">
           {label}
         </span>
-        <span className="tnum shrink-0 text-[13px] font-500"
+        <span className="tnum shrink-0 text-[13.5px] font-500"
               style={{ color: breached ? 'var(--color-warn)' : 'var(--color-fg)' }}>
-          {latest !== undefined ? latest.toFixed(digits) : '--'}
+          {latest !== undefined
+            ? <AnimatedNumber value={latest} decimals={digits} />
+            : '--'}
           <span className="ml-1 text-[9px] text-[var(--color-fg-dim)]">{unit}</span>
         </span>
       </div>
@@ -70,7 +82,7 @@ export function Channel({
           </AreaChart>
         </ResponsiveContainer>
       </div>
-    </div>
+    </motion.div>
   )
 }
 
@@ -194,12 +206,21 @@ export function Evidence({ reasons }: { reasons: Reasons[] }) {
   }
   return (
     <ul className="flex flex-col divide-y divide-[var(--color-border)] overflow-y-auto">
-      {reasons.map((r, i) => {
+      <AnimatePresence initial={false}>
+      {reasons.map((r) => {
         const tone = r.severity > 0.66 ? 'crit' : r.severity > 0.33 ? 'warn' : 'neutral'
         const col = tone === 'crit' ? 'var(--color-crit)'
           : tone === 'warn' ? 'var(--color-warn)' : 'var(--color-fg-dim)'
         return (
-          <li key={`${r.indicator}-${i}`} className="px-3 py-2">
+          // layout + presence: a newly contributing indicator slides in, and one
+          // that drops below threshold slides out, so the operator can see WHAT
+          // changed rather than only that the list is different.
+          <motion.li key={r.indicator} layout
+                     initial={{ opacity: 0, x: -10 }}
+                     animate={{ opacity: 1, x: 0 }}
+                     exit={{ opacity: 0, x: 10, transition: EASE_EXIT }}
+                     transition={EASE_OUT}
+                     className="px-3 py-2">
             <div className="flex items-start justify-between gap-2">
               <span className="text-[12px] leading-snug text-[var(--color-fg)]">{r.message}</span>
               <Badge tone={tone as 'crit' | 'warn' | 'neutral'}>{SUB[r.subsystem] ?? r.subsystem}</Badge>
@@ -207,13 +228,16 @@ export function Evidence({ reasons }: { reasons: Reasons[] }) {
             {/* The standard behind the threshold, so the number is auditable. */}
             <p className="mt-1 text-[10.5px] leading-snug text-[var(--color-fg-dim)]">{r.basis}</p>
             <div className="mt-1.5 h-[3px] overflow-hidden rounded-full bg-[var(--color-muted)]">
-              <div className="h-full rounded-full"
-                   style={{ width: `${Math.round(r.severity * 100)}%`, background: col,
-                            transition: 'width 400ms ease' }} />
+              <motion.div className="h-full w-full origin-left rounded-full"
+                          style={{ background: col }}
+                          initial={false}
+                          animate={{ scaleX: Math.max(0.02, r.severity) }}
+                          transition={SPRING} />
             </div>
-          </li>
+          </motion.li>
         )
       })}
+      </AnimatePresence>
     </ul>
   )
 }
@@ -238,8 +262,8 @@ export function RulPanel({ rul }: { rul: Rul | null }) {
   return (
     <div className="flex flex-col gap-2 px-3 py-3">
       <div className="flex items-baseline gap-2">
-        <span className="tnum text-3xl leading-none font-600" style={{ color: col }}>
-          {days === null ? 'PAST' : days.toFixed(1)}
+        <span className="tnum text-[30px] leading-none font-600" style={{ color: col }}>
+          {days === null ? 'PAST' : <AnimatedNumber value={days} decimals={1} />}
         </span>
         <span className="text-[11px] text-[var(--color-fg-muted)]">
           {days === null ? 'already critical' : 'days to critical'}
@@ -374,11 +398,18 @@ export function EventLog({ events, smtp }: { events: Evt[]; smtp: boolean }) {
   const RANK: Record<string, number> = { NORMAL: 0, WARNING: 1, CRITICAL: 2 }
   return (
     <ul className="flex flex-col divide-y divide-[var(--color-border)] overflow-y-auto">
+      <AnimatePresence initial={false}>
       {events.map((e, i) => {
         const st = STATE[e.to as keyof typeof STATE] ?? STATE.NO_DATA
         const worse = (RANK[e.to] ?? 0) > (RANK[e.from] ?? 0)
         return (
-          <li key={`${e.ts}-${i}`} className="px-3 py-1.5">
+          // Newest first, so a new alarm pushes in from the top.
+          <motion.li key={`${e.ts}-${i}`} layout
+                     initial={{ opacity: 0, y: -8 }}
+                     animate={{ opacity: 1, y: 0 }}
+                     exit={{ opacity: 0, transition: EASE_EXIT }}
+                     transition={EASE_OUT}
+                     className="px-3 py-1.5">
             <div className="flex items-baseline gap-2">
               <span className="tnum shrink-0 text-[10px] text-[var(--color-fg-dim)]">
                 {new Date(e.ts * 1000).toLocaleTimeString([], {
@@ -403,9 +434,10 @@ export function EventLog({ events, smtp }: { events: Evt[]; smtp: boolean }) {
                 {e.reasons[0]}
               </p>
             )}
-          </li>
+          </motion.li>
         )
       })}
+      </AnimatePresence>
     </ul>
   )
 }
