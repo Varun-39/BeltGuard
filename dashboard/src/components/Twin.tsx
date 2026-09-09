@@ -1,5 +1,5 @@
 import { Canvas, useFrame } from '@react-three/fiber'
-import { Html, OrbitControls } from '@react-three/drei'
+import { ContactShadows, Html, OrbitControls } from '@react-three/drei'
 import { useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import type { Frame } from '../useLive'
@@ -29,8 +29,8 @@ function Idler({ x, health, monitored }: { x: number; health: number; monitored:
       <mesh ref={ref} rotation={[0, 0, Math.PI / 2]}>
         <cylinderGeometry args={[0.17, 0.17, BELT_W + 0.25, 20]} />
         <meshStandardMaterial
-          color={col} metalness={0.75} roughness={0.35}
-          emissive={monitored ? col : '#000'} emissiveIntensity={monitored ? 0.5 : 0}
+          color={col} metalness={0.45} roughness={0.3}
+          emissive={monitored ? col : '#000'} emissiveIntensity={monitored ? 0.65 : 0}
         />
       </mesh>
       {monitored && (
@@ -98,19 +98,27 @@ function Belt({ frame }: { frame: Frame | null }) {
         </mesh>
       ))}
 
-      {/* The splice: the thing this whole project exists to watch. */}
-      <mesh ref={spliceRef} position={[0, 0.012, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[0.22, BELT_W]} />
-        <meshStandardMaterial
-          color={spliceCol} emissive={spliceCol}
-          emissiveIntensity={jointHealth < 50 ? 1.6 : 0.7} toneMapped={false}
+      {/* The splice: the thing this whole project exists to watch, so it is
+          the one object made of real glass. MeshTransmissionMaterial actually
+          refracts the scene behind it, which ties the twin to the same visual
+          language as the panels rather than being a coloured quad. */}
+      <mesh ref={spliceRef} position={[0, 0.05, 0]}>
+        <boxGeometry args={[0.26, 0.1, BELT_W + 0.05]} />
+        <meshPhysicalMaterial
+          color={spliceCol}
+          transmission={0.82} thickness={0.45} ior={1.45} roughness={0.12}
+          metalness={0} clearcoat={1} clearcoatRoughness={0.06}
+          attenuationColor={spliceCol} attenuationDistance={0.7}
+          emissive={spliceCol}
+          emissiveIntensity={jointHealth < 50 ? 1.9 : 0.75}
+          transparent toneMapped={false}
         />
       </mesh>
 
       {[-1, 1].map((s) => (
         <mesh key={s} position={[0, -0.06, (s * (BELT_W + 0.14)) / 2]}>
           <boxGeometry args={[BELT_LEN, 0.1, 0.09]} />
-          <meshStandardMaterial color="#39445e" metalness={0.7} roughness={0.45} />
+          <meshStandardMaterial color="#3a4568" metalness={0.4} roughness={0.35} />
         </mesh>
       ))}
 
@@ -122,7 +130,7 @@ function Belt({ frame }: { frame: Frame | null }) {
       {[-BELT_LEN / 2, BELT_LEN / 2].map((x) => (
         <mesh key={x} position={[x, -0.16, 0]} rotation={[0, 0, Math.PI / 2]}>
           <cylinderGeometry args={[0.34, 0.34, BELT_W + 0.3, 26]} />
-          <meshStandardMaterial color="#4a5570" metalness={0.85} roughness={0.3} />
+          <meshStandardMaterial color="#4d5a7d" metalness={0.5} roughness={0.25} />
         </mesh>
       ))}
     </group>
@@ -140,20 +148,45 @@ export function DigitalTwin({ frame }: { frame: Frame | null }) {
   }
   return (
     <div className="relative h-[280px] lg:h-full lg:min-h-[210px]">
-      <Canvas camera={{ position: [3.4, 2.5, 5.4], fov: 40 }} dpr={[1, 1.75]}
-              // preserveDrawingBuffer: the embedded preview pane does not composite
-              // the WebGL canvas into screenshots, so toDataURL() is the only way to
-              // confirm the scene actually drew. Also makes a twin snapshot exportable.
-              gl={{ preserveDrawingBuffer: true }}
-              onCreated={({ gl }) => gl.setClearColor('#141b2c')}
-              onError={() => setErr(true)}>
+      {/* preserveDrawingBuffer: the embedded preview pane does not composite the
+          WebGL canvas into screenshots, so toDataURL() is the only reliable way
+          to confirm the scene actually drew. */}
+      {/* resize.debounce=0 + an explicit fill style.
+          r3f measures its container with a debounced ResizeObserver. Inside a
+          backdrop-filtered, flex-sized panel that first measurement can land
+          while the box is still 0, and the debounce means the corrected size
+          never arrives -- the canvas stays pinned at its 300x150 default and
+          renders nothing visible. Measuring immediately fixes it. */}
+      <Canvas
+        camera={{ position: [3.4, 2.5, 5.4], fov: 40 }}
+        dpr={[1, 1.75]}
+        resize={{ debounce: 0, scroll: false }}
+        style={{ width: '100%', height: '100%', display: 'block' }}
+        gl={{ preserveDrawingBuffer: true, antialias: true, alpha: true }}
+        onCreated={({ gl }) => gl.setClearColor(0x0b0f1c, 1)}
+        onError={() => setErr(true)}
+      >
+        {/* Lit entirely by explicit lights, no environment map.
+            drei's <Environment preset> fetches an HDRI from a CDN; that fetch
+            failed here and took the whole canvas down with it. A demo must not
+            depend on a network round-trip, so the rig is three keys plus two
+            coloured rims matching the dashboard palette. */}
         <ambientLight intensity={0.55} />
-        <directionalLight position={[6, 9, 5]} intensity={1.15} />
-        <directionalLight position={[-5, 3, -4]} intensity={0.35} color="#5b7cff" />
+        <directionalLight position={[6, 9, 5]} intensity={2.4} color="#e6efff" />
+        <directionalLight position={[-6, 3, -4]} intensity={1.1} color="#0a84ff" />
+        <directionalLight position={[5, 2, -6]} intensity={0.9} color="#bf5af2" />
+        <pointLight position={[0, 1.6, 1.5]} intensity={9} distance={9} color="#ffffff" />
+
         <Belt frame={frame} />
-        <gridHelper args={[16, 16, '#243049', '#1c2437']} position={[0, -0.8, 0]} />
+
+        {/* Contact shadow instead of a grid: it grounds the belt in the scene
+            and reads as depth rather than as graph paper. */}
+        <ContactShadows position={[0, -0.85, 0]} opacity={0.55} scale={16}
+                        blur={2.4} far={3} resolution={512} color="#000814" />
         <OrbitControls enablePan={false} minDistance={4} maxDistance={11}
-                       maxPolarAngle={Math.PI / 2.15} />
+                       maxPolarAngle={Math.PI / 2.15}
+                       autoRotate autoRotateSpeed={0.35} enableDamping
+                       dampingFactor={0.06} />
       </Canvas>
       <div className="pointer-events-none absolute bottom-2 left-2 text-[9px] text-[var(--color-fg-dim)]">
         drag to orbit · scroll to zoom
@@ -179,19 +212,19 @@ export function CameraFeed({ frame }: { frame: Frame | null }) {
               <code className="text-[var(--color-info)]">python -m vision.service --source testset --loop</code>
             </p>
             <button onClick={() => setLive(true)}
-                    className="mt-3 cursor-pointer rounded border border-[var(--color-border-strong)] px-2 py-1 text-[10px] text-[var(--color-fg-muted)] transition-colors duration-200 hover:border-[var(--color-info)] hover:text-[var(--color-info)]">
+                    className="mt-3 cursor-pointer rounded border border-[rgba(255,255,255,0.16)] px-2 py-1 text-[10px] text-[var(--color-fg-muted)] transition-colors duration-200 hover:border-[var(--color-info)] hover:text-[var(--color-info)]">
               Retry
             </button>
           </div>
         )}
       </div>
-      <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-t border-[var(--color-border)] px-2.5 py-1.5">
+      <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-t border-[rgba(255,255,255,0.08)] px-2.5 py-1.5">
         {dets.length === 0 ? (
           <span className="text-[10px] text-[var(--color-fg-dim)]">no defects in frame</span>
         ) : (
           dets.slice(0, 5).map((d, i) => (
             <span key={i}
-                  className="tnum rounded border border-[var(--color-border-strong)] px-1.5 py-0.5 text-[10px]"
+                  className="tnum rounded border border-[rgba(255,255,255,0.16)] px-1.5 py-0.5 text-[10px]"
                   style={{ color: d.cls === 'belt_joint' ? 'var(--color-info)' : 'var(--color-warn)' }}>
               {d.cls} {(d.conf * 100).toFixed(0)}%
             </span>

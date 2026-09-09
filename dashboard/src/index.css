@@ -1,104 +1,185 @@
 @import 'tailwindcss';
 
-/* Fira Sans for UI, Fira Code for numbers.
-   Tabular monospace for telemetry is not decoration: readings update twice a
-   second, and proportional digits make the numbers jitter sideways on every
-   tick, which reads as instability in a control room. */
-@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Fira+Sans:wght@300;400;500;600;700&display=swap');
+/* Inter is the closest freely-licensed analogue to SF Pro — the same humanist
+   grotesque proportions and a true optical-size axis. JetBrains Mono carries
+   telemetry: tabular figures are non-negotiable when values update twice a
+   second, since proportional digits make numbers jitter sideways on every tick. */
+@import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 @theme {
-  --color-bg: #0b1120;
-  --color-panel: #141c2e;
-  --color-panel-2: #1a2337;
-  --color-muted: #232d44;
-  --color-border: #263149;
-  --color-border-strong: #3a486a;
-  --color-fg: #f1f5f9;
-  --color-fg-muted: #93a3bd;
-  --color-fg-dim: #5f6f8c;
+  /* Deep, slightly blue-violet ground. Not black — glass needs a coloured
+     field beneath it or the refraction has nothing to pick up. */
+  --color-bg: #070912;
+  --color-fg: #f5f7fa;
+  --color-fg-muted: #a2adc4;
+  --color-fg-dim: #6b7891;
 
-  /* Status. Never used alone to convey state -- every status also carries a
-     label and an icon, per the chart-accessibility guidance. */
-  --color-ok: #22c55e;
-  --color-warn: #f59e0b;
-  --color-crit: #ef4444;
-  --color-info: #38bdf8;
+  --color-ok: #30d158;      /* Apple system green  */
+  --color-warn: #ff9f0a;    /* Apple system orange */
+  --color-crit: #ff453a;    /* Apple system red    */
+  --color-info: #0a84ff;    /* Apple system blue   */
+  --color-accent: #bf5af2;  /* Apple system purple */
 
-  --font-sans: 'Fira Sans', ui-sans-serif, system-ui, sans-serif;
-  --font-mono: 'Fira Code', ui-monospace, monospace;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', monospace;
+
+  /* Continuous-ish corner radii. Apple's squircle cannot be expressed in plain
+     CSS, but large radii on nested surfaces read much closer than small ones. */
+  --r-lg: 22px;
+  --r-md: 16px;
+  --r-sm: 11px;
 }
 
-:root {
-  color-scheme: dark;
-}
-
-html,
-body,
-#root {
-  height: 100%;
-}
+:root { color-scheme: dark; }
+html, body, #root { height: 100%; }
 
 body {
   margin: 0;
   color: var(--color-fg);
   font-family: var(--font-sans);
+  font-feature-settings: 'cv05' 1, 'ss03' 1;
+  letter-spacing: -0.011em;          /* Inter needs slight negative tracking */
   -webkit-font-smoothing: antialiased;
-  /* Two very low-contrast radial washes. A flat fill reads as a web page; a
-     faint pool of light behind the content reads as a lit instrument panel.
-     Kept under 6% so it never competes with the data. */
-  background:
-    radial-gradient(1100px 600px at 18% -10%, rgba(56, 189, 248, 0.055), transparent 60%),
-    radial-gradient(900px 520px at 88% 8%, rgba(99, 102, 241, 0.045), transparent 60%),
-    var(--color-bg);
-  background-attachment: fixed;
+  background: var(--color-bg);
+  overflow: hidden;
 }
 
-/* Telemetry digits must not shift width as values change. */
+/* ── The light field ──────────────────────────────────────────────────────
+   Four slowly drifting colour wells behind everything. This is not decoration:
+   it is the thing the glass refracts. Over a flat fill, backdrop-filter has
+   nothing to bend and every "glass" panel collapses into a grey rectangle.
+   Kept dim enough that data always wins the contrast fight.               */
+.aurora {
+  position: fixed;
+  inset: -30%;
+  z-index: 0;
+  pointer-events: none;
+  filter: blur(90px) saturate(135%);
+  opacity: 0.55;
+}
+.aurora span {
+  position: absolute;
+  display: block;
+  border-radius: 50%;
+  mix-blend-mode: screen;
+}
+.aurora span:nth-child(1) {
+  width: 46vw; height: 46vw; left: 4%; top: 6%;
+  background: radial-gradient(circle, #0a84ff 0%, transparent 68%);
+  animation: drift-a 34s ease-in-out infinite;
+}
+.aurora span:nth-child(2) {
+  width: 40vw; height: 40vw; right: 6%; top: 0%;
+  background: radial-gradient(circle, #bf5af2 0%, transparent 68%);
+  animation: drift-b 44s ease-in-out infinite;
+}
+.aurora span:nth-child(3) {
+  width: 38vw; height: 38vw; left: 32%; bottom: 2%;
+  background: radial-gradient(circle, #00c7be 0%, transparent 68%);
+  animation: drift-c 52s ease-in-out infinite;
+}
+.aurora span:nth-child(4) {
+  width: 30vw; height: 30vw; right: 22%; bottom: 8%;
+  background: radial-gradient(circle, #5e5ce6 0%, transparent 70%);
+  animation: drift-a 40s ease-in-out infinite reverse;
+}
+@keyframes drift-a { 50% { transform: translate3d(7%, 9%, 0) scale(1.14); } }
+@keyframes drift-b { 50% { transform: translate3d(-9%, 6%, 0) scale(0.88); } }
+@keyframes drift-c { 50% { transform: translate3d(5%, -8%, 0) scale(1.1); } }
+
+/* ── Liquid glass ─────────────────────────────────────────────────────────
+   Four stacked cues, in the order the eye reads them:
+     1. saturate + brightness on the backdrop  → vibrancy (colour bleeds through)
+     2. a near-transparent vertical tint       → body, so it is a pane not a hole
+     3. inset 0 1px  white 55%                 → the specular top edge
+     4. inset ring + deep outer shadow         → thickness and lift
+   The specular highlight in (3) is what actually sells it. Blur alone reads as
+   "frosted div"; the lit top edge reads as a physical pane catching light.   */
+.glass {
+  position: relative;
+  border-radius: var(--r-lg);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.075) 0%, rgba(255, 255, 255, 0.028) 42%,
+                            rgba(8, 10, 20, 0.16) 100%);
+  backdrop-filter: blur(26px) saturate(180%) brightness(112%);
+  -webkit-backdrop-filter: blur(26px) saturate(180%) brightness(112%);
+  box-shadow:
+    inset 0 1px 0.5px rgba(255, 255, 255, 0.55),
+    inset 0 -14px 26px -18px rgba(255, 255, 255, 0.14),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.10),
+    0 20px 48px -22px rgba(0, 0, 0, 0.85),
+    0 2px 8px -4px rgba(0, 0, 0, 0.6);
+}
+
+/* Real refraction, where the browser supports a filter reference in
+   backdrop-filter. Chrome/Edge do; the effect is purely additive, so anything
+   that does not simply keeps the blur above. */
+@supports (backdrop-filter: url(#lg-refract)) {
+  .glass-refract {
+    backdrop-filter: url(#lg-refract) blur(22px) saturate(180%) brightness(112%);
+  }
+}
+
+.glass-sm { border-radius: var(--r-md); }
+
+/* Same bezel, no backdrop-filter.
+   A backdrop-filtered ANCESTOR breaks react-three-fiber's container
+   measurement: the canvas stays pinned at its 300x150 default and renders
+   nothing. Verified by toggling backdrop-filter off at runtime, after which
+   the canvas immediately sized to 809x474.
+   This is also the design-correct answer -- chrome is glass, content is
+   opaque -- so the 3D view keeps the radius, specular edge and shadow while
+   dropping the blur it cannot host. */
+.glass-solid {
+  position: relative;
+  border-radius: var(--r-lg);
+  background: linear-gradient(180deg, rgba(20, 26, 44, 0.92), rgba(11, 15, 28, 0.96));
+  box-shadow:
+    inset 0 1px 0.5px rgba(255, 255, 255, 0.42),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.09),
+    0 20px 48px -22px rgba(0, 0, 0, 0.85);
+}
+
+/* Data surfaces sit ON the glass, not in it.
+   Apple's own rule: chrome is translucent, content is legible. A chart or a
+   reading rendered through 26px of blur is a readability regression sold as
+   style, so anything carrying a number gets an opaque plate. */
+.plate {
+  background: rgba(10, 13, 24, 0.55);
+  border-radius: var(--r-md);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.055);
+}
+
 .tnum {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
 }
 
-/* Panel surfacing: a 1px inner top highlight plus a soft drop shadow. This is
-   how a physical instrument bezel catches light, and it separates stacked
-   panels far more cheaply than borders alone. */
-.panel {
-  box-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.045),
-    0 1px 2px rgba(0, 0, 0, 0.35),
-    0 8px 24px -16px rgba(0, 0, 0, 0.7);
+/* Section labels: small, wide, quiet. Apple uses tracking rather than weight
+   to mark a label as subordinate. */
+.eyebrow {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--color-fg-dim);
 }
 
-/* Faint scanline texture. Industrial panels read as flat plastic without a
-   little surface noise; kept near-invisible so it never fights the data. */
-.panel::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background-image: repeating-linear-gradient(
-    0deg,
-    rgba(255, 255, 255, 0.012) 0px,
-    rgba(255, 255, 255, 0.012) 1px,
-    transparent 1px,
-    transparent 3px
-  );
-}
-
-/* CRITICAL alarm treatment: a slow red breathing edge on the whole viewport.
-   Deliberately at the frame rather than on a panel -- it must be readable from
-   across a room, at an angle, by someone not looking directly at the screen,
-   which is the actual condition of a control room. */
+/* ── CRITICAL alarm ──────────────────────────────────────────────────────
+   On the viewport frame, not a panel: it must be readable from across a room,
+   at an angle, by someone not looking at the screen — the actual condition of
+   a control room. */
 @keyframes alarm-edge {
-  0%, 100% { box-shadow: inset 0 0 0 0 rgba(239, 68, 68, 0); }
-  50% { box-shadow: inset 0 0 46px -6px rgba(239, 68, 68, 0.42); }
+  0%, 100% { box-shadow: inset 0 0 0 0 rgba(255, 69, 58, 0), inset 0 0 0 1px rgba(255, 69, 58, 0.18); }
+  50% { box-shadow: inset 0 0 70px -10px rgba(255, 69, 58, 0.45), inset 0 0 0 1px rgba(255, 69, 58, 0.5); }
 }
 .alarm-critical::after {
   content: '';
   position: fixed;
   inset: 0;
   pointer-events: none;
-  z-index: 50;
+  z-index: 60;
   animation: alarm-edge 2.6s ease-in-out infinite;
 }
 
@@ -115,23 +196,23 @@ body {
   animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
-::-webkit-scrollbar { width: 7px; height: 7px; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #2e3a56; border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: var(--color-border-strong); }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.14); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.26); }
 
-/* Respect the OS setting. An operator who asked for no motion gets final
-   states immediately -- including the alarm edge, which becomes a static
-   border rather than a pulse so the CRITICAL signal is not lost with it. */
+/* An operator who asked the OS for no motion gets final states immediately.
+   The alarm edge degrades to a STATIC red border rather than vanishing — the
+   safety signal must survive the accessibility setting. */
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  *, *::before, *::after {
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
   }
+  .aurora span { animation: none; }
   .alarm-critical::after {
-    box-shadow: inset 0 0 40px -8px rgba(239, 68, 68, 0.38);
+    box-shadow: inset 0 0 60px -12px rgba(255, 69, 58, 0.4),
+                inset 0 0 0 1.5px rgba(255, 69, 58, 0.55);
   }
 }

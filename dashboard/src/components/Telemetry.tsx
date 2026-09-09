@@ -6,7 +6,7 @@ import { Badge, Panel, STATE, stateFor } from './Panels'
 import { AnimatedNumber, EASE_EXIT, EASE_OUT, SPRING, motion } from './motion'
 import { AnimatePresence } from 'motion/react'
 
-const AXIS = { stroke: 'var(--color-fg-dim)', fontSize: 10, fontFamily: 'Fira Code' }
+const AXIS = { stroke: 'var(--color-fg-dim)', fontSize: 10, fontFamily: 'JetBrains Mono' }
 
 /** One streaming channel. `warn` draws a threshold line so the number has a
  *  reference -- a trace with no limit on it tells an operator nothing. */
@@ -30,11 +30,11 @@ export function Channel({
 
   return (
     <motion.div
-      className="panel flex min-w-0 flex-col rounded-md border bg-[var(--color-panel-2)] p-2"
+      className="flex min-w-0 flex-col plate p-2.5"
       animate={{
-        borderColor: breached
-          ? 'color-mix(in srgb, var(--color-warn) 55%, transparent)'
-          : 'var(--color-border)',
+        boxShadow: breached
+          ? 'inset 0 0 0 1px rgba(255,159,10,0.55), 0 0 22px -8px rgba(255,159,10,0.6)'
+          : 'inset 0 0 0 1px rgba(255,255,255,0.055)',
       }}
       transition={EASE_OUT}
     >
@@ -59,7 +59,7 @@ export function Channel({
                 <stop offset="100%" stopColor={color} stopOpacity={0.02} />
               </linearGradient>
             </defs>
-            <CartesianGrid stroke="var(--color-muted)" vertical={false} />
+            <CartesianGrid stroke="rgba(255,255,255,0.07)" vertical={false} />
             <XAxis dataKey="t" hide />
             <YAxis width={30} {...AXIS} tickLine={false} axisLine={false}
                    domain={['auto', 'auto']} tickFormatter={(v) => Number(v).toFixed(0)} />
@@ -69,8 +69,9 @@ export function Channel({
             )}
             <Tooltip
               contentStyle={{
-                background: 'var(--color-bg)', border: '1px solid var(--color-border-strong)',
-                borderRadius: 6, fontSize: 11, fontFamily: 'Fira Code',
+                background: 'rgba(12,15,26,0.92)', border: '1px solid rgba(255,255,255,0.14)',
+                backdropFilter: 'blur(14px)',
+                borderRadius: 6, fontSize: 11, fontFamily: 'JetBrains Mono',
               }}
               labelFormatter={(t) => new Date(Number(t) * 1000).toLocaleTimeString()}
               formatter={(v: number) => [`${v.toFixed(digits)} ${unit}`, label]}
@@ -143,7 +144,7 @@ export function HealthTrend({ series, rul }: { series: Frame[]; rul?: Rul | null
               <stop offset="100%" stopColor="var(--color-info)" stopOpacity={0.02} />
             </linearGradient>
           </defs>
-          <CartesianGrid stroke="var(--color-muted)" vertical={false} />
+          <CartesianGrid stroke="rgba(255,255,255,0.07)" vertical={false} />
           {/* Numeric time axis: projection points sit in the future, so a
               category axis would bunch them at the end. */}
           <XAxis dataKey="t" type="number" scale="time" domain={['dataMin', 'dataMax']}
@@ -158,12 +159,13 @@ export function HealthTrend({ series, rul }: { series: Frame[]; rul?: Rul | null
             <ReferenceLine x={crossing} stroke="var(--color-crit)" strokeWidth={1.2}
                            label={{ value: 'CRITICAL', position: 'insideTopRight',
                                     fill: 'var(--color-crit)', fontSize: 9,
-                                    fontFamily: 'Fira Code' }} />
+                                    fontFamily: 'JetBrains Mono' }} />
           )}
           <Tooltip
             contentStyle={{
-              background: 'var(--color-bg)', border: '1px solid var(--color-border-strong)',
-              borderRadius: 6, fontSize: 11, fontFamily: 'Fira Code',
+              background: 'rgba(12,15,26,0.92)', border: '1px solid rgba(255,255,255,0.14)',
+                backdropFilter: 'blur(14px)',
+              borderRadius: 6, fontSize: 11, fontFamily: 'JetBrains Mono',
             }}
             labelFormatter={(t) => new Date(Number(t) * 1000).toLocaleTimeString()}
             formatter={(v: number, n: string) => [
@@ -205,7 +207,7 @@ export function Evidence({ reasons }: { reasons: Reasons[] }) {
     joint: 'SPLICE', bearing: 'BEARING', alignment: 'TRACKING', belt_body: 'BELT',
   }
   return (
-    <ul className="flex flex-col divide-y divide-[var(--color-border)] overflow-y-auto">
+    <ul className="flex flex-col divide-y divide-[rgba(255,255,255,0.07)] overflow-y-auto">
       <AnimatePresence initial={false}>
       {reasons.map((r) => {
         const tone = r.severity > 0.66 ? 'crit' : r.severity > 0.33 ? 'warn' : 'neutral'
@@ -227,7 +229,7 @@ export function Evidence({ reasons }: { reasons: Reasons[] }) {
             </div>
             {/* The standard behind the threshold, so the number is auditable. */}
             <p className="mt-1 text-[10.5px] leading-snug text-[var(--color-fg-dim)]">{r.basis}</p>
-            <div className="mt-1.5 h-[3px] overflow-hidden rounded-full bg-[var(--color-muted)]">
+            <div className="mt-1.5 h-[3px] overflow-hidden rounded-full bg-[rgba(255,255,255,0.09)]">
               <motion.div className="h-full w-full origin-left rounded-full"
                           style={{ background: col }}
                           initial={false}
@@ -363,7 +365,7 @@ export function ActionPanel({ health, rul }: { health: Health; rul: Rul | null }
 
       {/* The argument for acting: planned repair is an order of magnitude
           cheaper in downtime than the rupture it prevents. */}
-      <div className="grid grid-cols-2 gap-2 rounded border border-[var(--color-border)] bg-[var(--color-panel-2)] p-2">
+      <div className="plate grid grid-cols-2 gap-2 p-3">
         <div>
           <p className="text-[9px] tracking-wider text-[var(--color-fg-dim)] uppercase">Planned</p>
           <p className="tnum text-[13px] font-600 text-[var(--color-ok)]">{a.planned}</p>
@@ -397,7 +399,7 @@ export function EventLog({ events, smtp }: { events: Evt[]; smtp: boolean }) {
   }
   const RANK: Record<string, number> = { NORMAL: 0, WARNING: 1, CRITICAL: 2 }
   return (
-    <ul className="flex flex-col divide-y divide-[var(--color-border)] overflow-y-auto">
+    <ul className="flex flex-col divide-y divide-[rgba(255,255,255,0.07)] overflow-y-auto">
       <AnimatePresence initial={false}>
       {events.map((e, i) => {
         const st = STATE[e.to as keyof typeof STATE] ?? STATE.NO_DATA

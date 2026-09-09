@@ -5,7 +5,8 @@ import {
   ActionPanel, Channel, EventLog, Evidence, HealthTrend, RulPanel, SourceBar,
 } from './components/Telemetry'
 import { CameraFeed, DigitalTwin } from './components/Twin'
-import { AnimatedNumber, PulseOnChange, Reveal, Trend, motion } from './components/motion'
+import { PulseOnChange, Reveal, Trend } from './components/motion'
+import { Aurora, GlassFilters } from './components/Glass'
 
 function Header({
   connected, state, paused, onPause, simulated,
@@ -18,9 +19,10 @@ function Header({
 }) {
   const s = STATE[state]
   return (
-    <header className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b border-[var(--color-border)] bg-[var(--color-panel)] px-4 py-2.5">
+    <header className="glass relative z-20 flex shrink-0 flex-wrap items-center gap-x-5 gap-y-2 px-5 py-3"
+            style={{ borderRadius: 0, boxShadow: 'inset 0 -1px 0 rgba(255,255,255,0.09), 0 8px 32px -20px rgba(0,0,0,0.9)' }}>
       <div className="flex items-center gap-2.5">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden>
           <rect x="1.5" y="8.5" width="21" height="7" rx="3.5"
                 stroke="var(--color-info)" strokeWidth="1.6" />
           <path d="M12 8.5v7" stroke="var(--color-info)" strokeWidth="1.6" strokeLinecap="round" />
@@ -28,8 +30,8 @@ function Header({
           <circle cx="18" cy="12" r="1.2" fill="var(--color-info)" />
         </svg>
         <div className="leading-tight">
-          <h1 className="text-[13px] font-600 tracking-wide">BeltGuard</h1>
-          <p className="text-[9.5px] tracking-[0.1em] text-[var(--color-fg-dim)] uppercase">
+          <h1 className="text-[16px] font-600 tracking-[-0.02em]">BeltGuard</h1>
+          <p className="text-[9.5px] font-500 tracking-[0.12em] text-[var(--color-fg-dim)] uppercase">
             NMDC Line A · Conveyor CV-204
           </p>
         </div>
@@ -39,11 +41,13 @@ function Header({
           It pulses on change so an escalation registers even if the operator
           was looking at another panel when it happened. */}
       <PulseOnChange trigger={state} color={`color-mix(in srgb, ${s.color} 55%, transparent)`}>
-        <div className="flex items-center gap-2 rounded-md border px-3 py-1.5"
-             style={{ borderColor: `color-mix(in srgb, ${s.color} 45%, transparent)`,
-                      background: `color-mix(in srgb, ${s.color} 10%, transparent)` }}>
-          <span aria-hidden style={{ color: s.color }} className="text-[11px]">{s.glyph}</span>
-          <span className="text-[12px] font-600 tracking-[0.12em]" style={{ color: s.color }}>
+        <div className="flex items-center gap-2 rounded-full px-3.5 py-1.5"
+             style={{ background: `color-mix(in srgb, ${s.color} 16%, transparent)`,
+                      boxShadow: `inset 0 0 0 0.5px color-mix(in srgb, ${s.color} 60%, transparent),
+                                  inset 0 1px 0 color-mix(in srgb, ${s.color} 35%, transparent),
+                                  0 0 22px -6px ${s.color}` }}>
+          <span aria-hidden style={{ color: s.color }} className="text-[10px]">{s.glyph}</span>
+          <span className="text-[12px] font-600 tracking-[0.1em]" style={{ color: s.color }}>
             {s.label}
           </span>
         </div>
@@ -66,7 +70,9 @@ function Header({
         {/* Required by the streaming-chart guidance: the operator must be able
             to stop the view moving to read a value. */}
         <button onClick={onPause}
-                className="cursor-pointer rounded border border-[var(--color-border-strong)] px-2 py-1 text-[10px] tracking-wider text-[var(--color-fg-muted)] uppercase transition-colors duration-200 hover:border-[var(--color-info)] hover:text-[var(--color-info)] focus-visible:ring-2 focus-visible:ring-[var(--color-info)] focus-visible:outline-none">
+                className="cursor-pointer rounded-full px-3.5 py-1.5 text-[10px] font-600 tracking-[0.08em] text-[var(--color-fg-muted)] uppercase transition-all duration-200 hover:text-[var(--color-fg)] focus-visible:ring-2 focus-visible:ring-[var(--color-info)] focus-visible:outline-none"
+                style={{ background: 'rgba(255,255,255,0.09)',
+                         boxShadow: 'inset 0 0 0 0.5px rgba(255,255,255,0.18), inset 0 1px 0 rgba(255,255,255,0.22)' }}>
           {paused ? 'Resume' : 'Pause'}
         </button>
       </div>
@@ -77,12 +83,12 @@ function Header({
 function Empty() {
   return (
     <div className="flex flex-1 items-center justify-center p-8">
-      <div className="max-w-md text-center">
-        <h2 className="text-[15px] font-500">Waiting for telemetry</h2>
+      <div className="glass max-w-lg px-8 py-7 text-center">
+        <h2 className="text-[19px] font-600 tracking-[-0.02em]">Waiting for telemetry</h2>
         <p className="mt-2 text-[12px] leading-relaxed text-[var(--color-fg-muted)]">
           No sensor data on the bus yet. Start the three services:
         </p>
-        <pre className="mt-3 overflow-x-auto rounded border border-[var(--color-border)] bg-[var(--color-panel)] p-3 text-left text-[10.5px] leading-relaxed text-[var(--color-info)]">
+        <pre className="tnum plate mt-4 overflow-x-auto p-4 text-left text-[11px] leading-relaxed text-[var(--color-info)]">
 {`python infra/broker.py
 python -m uvicorn backend.app:app --port 8010
 python -m sensors_sim.run`}
@@ -105,18 +111,20 @@ export default function App() {
   // CRITICAL puts a slow breathing red edge on the whole viewport -- readable
   // from across a room, which is the actual condition of a control room.
   return (
-    <div className={`flex h-full flex-col ${state === 'CRITICAL' ? 'alarm-critical' : ''}`}>
+    <div className={`relative flex h-full flex-col ${state === 'CRITICAL' ? 'alarm-critical' : ''}`}>
+      <Aurora />
+      <GlassFilters />
       <Header connected={connected} state={state} paused={paused}
               onPause={() => setPaused((p) => !p)} simulated={simulated} />
 
       {!frame ? (
         <Empty />
       ) : (
-        <main className="flex flex-1 flex-col gap-2.5 overflow-auto p-2.5
-                         lg:grid lg:min-h-0 lg:grid-cols-[300px_minmax(0,1fr)_310px]
+        <main className="relative z-10 flex flex-1 flex-col gap-3 overflow-auto p-3
+                         lg:grid lg:min-h-0 lg:grid-cols-[312px_minmax(0,1fr)_324px]
                          lg:overflow-hidden">
           {/* LEFT: state at a glance */}
-          <div className="flex flex-col gap-2.5 lg:min-h-0 lg:overflow-y-auto">
+          <div className="flex flex-col gap-3 lg:min-h-0 lg:overflow-y-auto">
             <Reveal index={0}><Panel title="Belt Health"
                    right={<Badge tone={state === 'NORMAL' ? 'ok' : state === 'WARNING' ? 'warn' : 'crit'}>
                      {STATE[state].label}</Badge>}>
@@ -136,9 +144,9 @@ export default function App() {
           </div>
 
           {/* CENTRE: the belt itself */}
-          <div className="flex flex-col gap-2.5 lg:min-h-0 lg:overflow-y-auto">
+          <div className="flex flex-col gap-3 lg:min-h-0 lg:overflow-y-auto">
             <Reveal index={1} className="min-h-[230px] lg:flex-[1.15]">
-            <Panel title="Digital Twin"
+            <Panel title="Digital Twin" solid
                    right={<span className="tnum text-[10px] text-[var(--color-fg-dim)]">
                      {(frame.readings?.speed?.speed_mps ?? 0).toFixed(2)} m/s</span>}
                    className="h-full">
@@ -153,7 +161,7 @@ export default function App() {
               <HealthTrend series={series} rul={rul} />
             </Panel></Reveal>
 
-            <Reveal index={3} className="grid shrink-0 grid-cols-2 gap-2.5 xl:grid-cols-4">
+            <Reveal index={3} className="grid shrink-0 grid-cols-2 gap-3 xl:grid-cols-4">
               <Channel series={series} label="Vibration RMS" unit="mm/s" color="var(--color-info)"
                        warn={2.8} pick={(f) => f.readings?.vibration?.rms_mm_s} />
               <Channel series={series} label="Kurtosis" unit="" color="#a78bfa" warn={6}
@@ -166,7 +174,7 @@ export default function App() {
           </div>
 
           {/* RIGHT: camera + why */}
-          <div className="flex flex-col gap-2.5 lg:min-h-0 lg:overflow-y-auto">
+          <div className="flex flex-col gap-3 lg:min-h-0 lg:overflow-y-auto">
             <Reveal index={2} className="min-h-[220px] lg:flex-[0.9]">
               <Panel title="Inspection Camera" className="h-full"
                      right={<Badge tone={health!.vision_active ? 'ok' : 'neutral'}>

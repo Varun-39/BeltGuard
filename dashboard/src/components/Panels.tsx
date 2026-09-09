@@ -42,21 +42,23 @@ export function Panel({
   right,
   children,
   className = '',
+  solid = false,
 }: {
   title?: string
   right?: ReactNode
   children: ReactNode
   className?: string
+  /** Opt out of backdrop-filter. Required for any panel hosting a WebGL
+   *  canvas -- see the .glass-solid note in index.css. */
+  solid?: boolean
 }) {
   return (
     <section
-      className={`panel group relative flex min-h-0 flex-col overflow-hidden rounded-lg border border-[var(--color-border)] bg-[var(--color-panel)] ${className}`}
+      className={`${solid ? 'glass-solid' : 'glass glass-refract'} relative flex min-h-0 flex-col overflow-hidden ${className}`}
     >
       {title && (
-        <header className="relative flex shrink-0 items-center justify-between gap-3 border-b border-[var(--color-border)] px-3 py-2">
-          <h2 className="text-[10.5px] font-600 tracking-[0.16em] text-[var(--color-fg-muted)] uppercase">
-            {title}
-          </h2>
+        <header className="relative flex shrink-0 items-center justify-between gap-3 px-4 pt-3 pb-2">
+          <h2 className="eyebrow">{title}</h2>
           {right}
         </header>
       )}
@@ -75,16 +77,24 @@ export function Badge({
   title?: string
 }) {
   const tones: Record<string, string> = {
-    neutral: 'text-[var(--color-fg-muted)] border-[var(--color-border-strong)]',
-    ok: 'text-[var(--color-ok)] border-[color-mix(in_srgb,var(--color-ok)_45%,transparent)] bg-[color-mix(in_srgb,var(--color-ok)_9%,transparent)]',
-    warn: 'text-[var(--color-warn)] border-[color-mix(in_srgb,var(--color-warn)_45%,transparent)] bg-[color-mix(in_srgb,var(--color-warn)_9%,transparent)]',
-    crit: 'text-[var(--color-crit)] border-[color-mix(in_srgb,var(--color-crit)_45%,transparent)] bg-[color-mix(in_srgb,var(--color-crit)_9%,transparent)]',
-    info: 'text-[var(--color-info)] border-[color-mix(in_srgb,var(--color-info)_45%,transparent)] bg-[color-mix(in_srgb,var(--color-info)_9%,transparent)]',
+    neutral: 'text-[var(--color-fg-muted)]',
+    ok: 'text-[var(--color-ok)]',
+    warn: 'text-[var(--color-warn)]',
+    crit: 'text-[var(--color-crit)]',
+    info: 'text-[var(--color-info)]',
+  }
+  // Capsule, not a rectangle: Apple's badge is a pill with a tinted wash and a
+  // hairline of its own colour rather than a hard border.
+  const wash: Record<string, string> = {
+    neutral: 'rgba(255,255,255,0.07)', ok: 'rgba(48,209,88,0.15)',
+    warn: 'rgba(255,159,10,0.16)', crit: 'rgba(255,69,58,0.17)',
+    info: 'rgba(10,132,255,0.16)',
   }
   return (
     <span
       title={title}
-      className={`inline-flex items-center gap-1.5 rounded border px-1.5 py-0.5 text-[9.5px] font-500 tracking-[0.09em] whitespace-nowrap uppercase ${tones[tone]}`}
+      style={{ background: wash[tone], boxShadow: 'inset 0 0 0 0.5px currentColor' }}
+      className={`inline-flex items-center gap-1.5 rounded-full px-2 py-[3px] text-[9.5px] font-600 tracking-[0.07em] whitespace-nowrap uppercase ${tones[tone]}`}
     >
       {children}
     </span>
@@ -153,20 +163,20 @@ export function HealthGauge({ score, state }: { score: number; state: StateKey }
           transition={reduce ? { duration: 0 } : SPRING}
           strokeWidth={2.5} strokeLinecap="round"
         />
-        <circle cx={CX} cy={CY} r={5} fill="var(--color-panel)" stroke={s.color} strokeWidth={2} />
+        <circle cx={CX} cy={CY} r={5} fill="rgba(10,13,24,0.9)" stroke={s.color} strokeWidth={2} />
 
-        <text x={20} y={128} fill="var(--color-fg-dim)" fontSize={9} fontFamily="Fira Code">0</text>
-        <text x={CX - 6} y={12} fill="var(--color-fg-dim)" fontSize={9} fontFamily="Fira Code">50</text>
-        <text x={196} y={128} fill="var(--color-fg-dim)" fontSize={9} fontFamily="Fira Code">100</text>
+        <text x={20} y={128} fill="var(--color-fg-dim)" fontSize={9} fontFamily="JetBrains Mono">0</text>
+        <text x={CX - 6} y={12} fill="var(--color-fg-dim)" fontSize={9} fontFamily="JetBrains Mono">50</text>
+        <text x={196} y={128} fill="var(--color-fg-dim)" fontSize={9} fontFamily="JetBrains Mono">100</text>
       </svg>
 
       <div className="-mt-8 flex flex-col items-center">
         <AnimatedNumber
           value={score}
-          className="tnum text-[54px] leading-none font-600 tabular-nums"
+          className="tnum text-[60px] leading-[0.9] font-600 tabular-nums"
           style={{ color: s.color, textShadow: `0 0 28px color-mix(in srgb, ${s.color} 35%, transparent)` }}
         />
-        <div className="mt-1.5 text-[9px] tracking-[0.22em] text-[var(--color-fg-dim)]">
+        <div className="mt-2 text-[9px] font-600 tracking-[0.2em] text-[var(--color-fg-dim)]">
           BELT HEALTH INDEX
         </div>
       </div>
@@ -192,7 +202,7 @@ export function SubsystemBars({ subsystems }: { subsystems: Record<string, numbe
   const anyDegraded = (subsystems[worst] ?? 100) < 80
 
   return (
-    <div className="flex flex-col gap-2.5 px-3 py-3">
+    <div className="flex flex-col gap-3 px-4 pt-1 pb-4">
       {ORDER.map((k) => {
         const v = subsystems[k] ?? 100
         const st = STATE[stateFor(v)]
@@ -217,12 +227,13 @@ export function SubsystemBars({ subsystems }: { subsystems: Record<string, numbe
                 <AnimatedNumber value={v} />
               </span>
             </div>
-            <div className="h-[5px] overflow-hidden rounded-full bg-[var(--color-muted)]">
+            <div className="h-[6px] overflow-hidden rounded-full bg-[rgba(255,255,255,0.09)]">
               {/* scaleX rather than width: transforms stay on the compositor,
                   width forces a layout pass twice a second. */}
               <motion.div
                 className="h-full origin-left rounded-full"
-                style={{ background: st.color, width: '100%' }}
+                style={{ background: st.color, width: '100%',
+                         boxShadow: `0 0 12px -2px ${st.color}` }}
                 initial={false}
                 animate={{ scaleX: Math.max(0.02, v / 100) }}
                 transition={SPRING}
