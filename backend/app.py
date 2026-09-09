@@ -146,7 +146,12 @@ async def _broadcast_loop() -> None:
         if not latest:
             continue
         h = current_health()
-        store.add_health(LINE, h)
+        # Off the event loop: add_health takes the store lock and commits to
+        # SQLite, and blocking I/O inside the loop stalls every socket it is
+        # serving. (This was not the cause of the ~2 s request latency seen
+        # during SCADA work -- that was an IPv6 `localhost` fallback -- but
+        # blocking the loop on a lock a query thread may hold is still wrong.)
+        await asyncio.to_thread(store.add_health, LINE, h)
         frame = json.dumps({
             "type": "tick",
             "ts": time.time(),

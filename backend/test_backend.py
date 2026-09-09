@@ -16,7 +16,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PY = ROOT / ".venv" / "Scripts" / "python.exe"
-API = "http://localhost:8010"
+API = "http://127.0.0.1:8010"   # not "localhost": ::1 fallback costs ~2 s here
 
 
 def get(path: str):
@@ -80,7 +80,7 @@ def main() -> int:
         except ImportError:
             print("  SKIP websocket check (pip install websockets)")
         else:
-            with connect("ws://localhost:8010/ws", open_timeout=10) as ws:
+            with connect("ws://127.0.0.1:8010/ws", open_timeout=10) as ws:
                 frame = json.loads(ws.recv(timeout=10))
             assert frame["type"] == "tick" and frame["health"]["overall"] is not None
             assert set(frame["readings"]) == {"vibration", "temperature", "load",
