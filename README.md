@@ -380,13 +380,18 @@ added to that OAuth client's authorized origins.
 
 | Method | Endpoint | Description |
 |---|---|---|
+| `GET` | `/` | Liveness -- service name and a pointer to `/docs`, nothing else |
 | `GET` | `/api/status` | Broker connectivity, live channels, simulation status |
 | `GET` | `/api/health/current` | Current fused health, subsystems and contributing evidence |
 | `GET` | `/api/health/history` | Health history, server-side decimated |
 | `GET` | `/api/history/{kind}` | Readings for one sensor kind |
 | `GET` | `/api/rul` | RUL estimate with confidence bounds |
 | `GET` | `/api/alerts` | Confirmed state transitions and delivery status |
+| `POST` | `/api/pair` | Create a one-time "open on phone" session hand-off token |
+| `GET` | `/api/pair/{token}` | Redeem that token once (404 after, or past 120s) |
 | `WS` | `/ws` | Combined telemetry frame at 2 Hz |
+
+Interactive docs (Swagger UI, from FastAPI itself): `/docs`.
 
 ### 9.2 Modbus/TCP (`:5020`, device id 1)
 

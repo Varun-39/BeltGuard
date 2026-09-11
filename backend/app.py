@@ -227,6 +227,16 @@ app.add_middleware(
 )
 
 
+@app.get("/")
+def root():
+    """Bare landing for the API root -- a host's health check (Railway's
+    default probes `/`) or a person opening the backend URL directly gets a
+    real answer instead of a bare 404. `/api/status` has the actual telemetry;
+    this just confirms the service is up. Interactive docs at `/docs`, from
+    FastAPI itself."""
+    return {"service": "beltguard-backend", "status": "ok", "docs": "/docs"}
+
+
 @app.get("/api/status")
 def status():
     """System status -- including, explicitly, what is simulated."""

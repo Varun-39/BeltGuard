@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, MotionConfig } from 'motion/react'
 import { useBaseline, useEvents, useLive, useRul, type Frame, type Rul } from './useLive'
 import {
@@ -8,7 +8,12 @@ import { usePrefs } from './prefs'
 import { speak, statusSentence, useAlarmAnnouncer, useVoiceCommands } from './voice'
 import { configured as googleConfigured, useGoogleAuth, type Auth } from './auth'
 import type { Command } from './commands'
-import { Twin } from './twin/Twin'
+// Lazy: three.js + @react-three/fiber + drei + camera-controls are most of
+// the app's JS weight, and nothing above the fold needs them synchronously
+// -- the header, wordmark and CTA can paint and be interactive first. Also
+// the one thing keeping "open on phone" light over a real Wi-Fi link, not a
+// dev-machine loopback.
+const Twin = lazy(() => import('./twin/Twin').then((m) => ({ default: m.Twin })))
 import { Inspector } from './components/Inspector'
 import { Timeline, type TimelineSubject } from './components/Charts'
 import { Landing } from './components/Landing'
@@ -94,9 +99,14 @@ export default function App() {
              style={{ gridTemplateColumns: entered ? 'minmax(0,1fr) calc(384px * var(--ui-scale))' : 'minmax(0,1fr) 0px' }}>
           <main className={`flex shrink-0 flex-col lg:h-auto lg:min-h-0 ${entered ? 'h-[72vh]' : 'h-full'}`}>
             <div className="relative min-h-0 flex-1">
-              <Twin frame={frame} paused={paused} levels={levels} mode={entered ? 'work' : 'hero'}
-                    reduced={reduced} themeKey={`${dark}-${prefs.contrast}`}
-                    selected={selected} hovered={hovered} onSelect={setSelected} onHover={setHovered} />
+              {/* Fallback matches Twin's own outer wrapper (grid-bg on the
+                  viewport surface) so the 3D chunk loading in behind it is
+                  invisible -- same backdrop before and after, no flash. */}
+              <Suspense fallback={<div className="grid-bg absolute inset-0 bg-[var(--viewport)]" />}>
+                <Twin frame={frame} paused={paused} levels={levels} mode={entered ? 'work' : 'hero'}
+                      reduced={reduced} themeKey={`${dark}-${prefs.contrast}`}
+                      selected={selected} hovered={hovered} onSelect={setSelected} onHover={setHovered} />
+              </Suspense>
               <AnimatePresence>
                 {!entered && (
                   <motion.div key="landing" className="absolute inset-0"
