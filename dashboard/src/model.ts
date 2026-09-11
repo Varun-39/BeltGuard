@@ -27,6 +27,14 @@ export const SUBSYSTEM_LABEL: Record<Subsystem, string> = {
   alignment: 'Belt tracking',
   belt_body: 'Belt surface',
 }
+/** Same reasoning as Part.about: the label alone still assumes the reader
+ *  knows what "tracking" or "the joint" means on a conveyor. */
+export const SUBSYSTEM_ABOUT: Record<Subsystem, string> = {
+  joint: "How well the belt's joined seam is holding up under repeated flexing.",
+  bearing: 'How smoothly a roller spins on its bearing -- wear here shows up as heat, noise and vibration.',
+  alignment: 'Whether the belt is running straight and centred, or drifting to one side.',
+  belt_body: 'The physical condition of the belt material itself -- tears, holes or worn patches.',
+}
 
 export type Metric = {
   kind: string

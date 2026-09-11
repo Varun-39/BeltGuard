@@ -102,7 +102,7 @@ export default function App() {
               {/* Fallback matches Twin's own outer wrapper (grid-bg on the
                   viewport surface) so the 3D chunk loading in behind it is
                   invisible -- same backdrop before and after, no flash. */}
-              <Suspense fallback={<div className="grid-bg absolute inset-0 bg-[var(--viewport)]" />}>
+              <Suspense fallback={<div className="grid-bg pointer-events-none absolute inset-0 bg-[var(--viewport)]" />}>
                 <Twin frame={frame} paused={paused} levels={levels} mode={entered ? 'work' : 'hero'}
                       reduced={reduced} themeKey={`${dark}-${prefs.contrast}`}
                       selected={selected} hovered={hovered} onSelect={setSelected} onHover={setHovered} />

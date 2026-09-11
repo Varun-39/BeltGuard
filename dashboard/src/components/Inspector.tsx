@@ -3,7 +3,7 @@ import { AnimatePresence } from 'motion/react'
 import { API_BASE } from '../config'
 import type { Evt, Frame, Rul } from '../useLive'
 import {
-  ACTIONS, DEFECT_LABEL, LEVEL_LABEL, METRICS, PARTS, PART_ORDER, SENSOR_PART, SENSOR_TYPE, SUBSYSTEM_LABEL,
+  ACTIONS, DEFECT_LABEL, LEVEL_LABEL, METRICS, PARTS, PART_ORDER, SENSOR_PART, SENSOR_TYPE, SUBSYSTEM_ABOUT, SUBSYSTEM_LABEL,
   eventsFor, levelFor, read, type Level, type MetricId, type PartId, type Subsystem,
 } from '../model'
 import { MetricChart, Spark, metricSeries } from './Charts'
@@ -168,12 +168,15 @@ function PartView({ id, frame, series, rul, events, smtp, onSelect }: Props & { 
         <p className="mt-1.5 text-[12px] leading-relaxed text-[var(--fg-3)]">{part.about}</p>
 
         {subs.length > 0 && (
-          <dl className="mt-4 space-y-1.5">
+          <dl className="mt-4 space-y-2.5">
             {subs.map((s) => {
               const v = frame.health.subsystems[s] ?? 100
               return (
                 <div key={s} className="flex items-baseline gap-3">
-                  <dt className="flex-1 text-[13px]">{SUBSYSTEM_LABEL[s]}</dt>
+                  <div className="min-w-0 flex-1">
+                    <dt className="text-[13px]">{SUBSYSTEM_LABEL[s]}</dt>
+                    <dd className="mt-0.5 text-[11px] leading-snug text-[var(--fg-3)]">{SUBSYSTEM_ABOUT[s]}</dd>
+                  </div>
                   <dd className="num text-[13px] font-500">{v}<span className="font-normal text-[var(--fg-3)]"> / 100</span></dd>
                   <dd className="w-[70px] text-right text-[12px]"><LevelText level={levelFor(v)} /></dd>
                 </div>

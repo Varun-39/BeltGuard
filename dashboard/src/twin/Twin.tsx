@@ -750,6 +750,27 @@ export function Twin({ frame, paused, levels, mode, reduced, themeKey, selected,
 }) {
   const [failed, setFailed] = useState(false)
   const [moved, setMoved] = useState(false)
+  // "Drag to rotate" -- the hero's own manual orbit is otherwise invisible
+  // until someone tries it, and now that dragging genuinely works (it
+  // silently didn't, see the pointer-events-blocking bugs fixed alongside
+  // this), it's worth telling people it's there. Shown once, ever: dismissed
+  // by the first real drag (`moved` already tracks that) or a short timeout,
+  // whichever comes first, and the "seen" flag persists across sessions.
+  const [hintSeen, setHintSeen] = useState(() => {
+    try { return localStorage.getItem('beltguard.rotateHintSeen') === '1' } catch { return false }
+  })
+  const [hintVisible, setHintVisible] = useState(false)
+  const dismissHint = useCallback(() => {
+    setHintSeen(true)
+    try { localStorage.setItem('beltguard.rotateHintSeen', '1') } catch { /* private mode */ }
+  }, [])
+  useEffect(() => {
+    if (mode !== 'hero' || hintSeen) return
+    const show = setTimeout(() => setHintVisible(true), reduced ? 0 : 900)
+    const hide = setTimeout(dismissHint, 8000)
+    return () => { clearTimeout(show); clearTimeout(hide) }
+  }, [mode, hintSeen, reduced, dismissHint])
+  useEffect(() => { if (moved) dismissHint() }, [moved, dismissHint])
   const [resetKey, setResetKey] = useState(0)
   const down = useRef<[number, number]>([0, 0])
   const parts = useRef<Partial<Record<PartId, THREE.Object3D>>>({})
@@ -800,6 +821,20 @@ export function Twin({ frame, paused, levels, mode, reduced, themeKey, selected,
         </TwinCtx.Provider>
       </Canvas>
       </Contain>
+
+      {/* pointer-events-none, deliberately -- this exact bug (an overlay
+          silently eating the drag it's telling you about) is the one this
+          whole feature exists downstream of. Anchored under the header
+          rather than the footer: the machine sits in the upper band on
+          both portrait (see Landing's spacer) and landscape, and the
+          footer's own position varies enough between the two that a
+          bottom-anchored hint risked landing on top of it. */}
+      {mode === 'hero' && !hintSeen && (
+        <div className={`pointer-events-none absolute inset-x-0 top-16 flex justify-center ${reduced ? '' : 'transition-opacity duration-500'}`}
+             style={{ opacity: hintVisible ? 1 : 0 }}>
+          <span className="glass rounded-full px-3 py-1.5 text-[12px] text-[var(--fg-2)]">Drag to rotate</span>
+        </div>
+      )}
 
       {moved && mode === 'work' && (
         <button type="button" onClick={() => setResetKey((k) => k + 1)}

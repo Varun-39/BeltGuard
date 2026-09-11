@@ -72,7 +72,18 @@ export function Landing({ frame, connected, reduced, dark, auth, onEnter }: {
           independently. */}
       <div className="h-[32vh] max-h-[270px] min-h-[190px] shrink-0 lg:hidden" />
 
-      <div className="pointer-events-auto flex min-h-0 flex-col overflow-y-auto px-6 pb-4 sm:px-10 lg:flex-1 lg:justify-center lg:px-14">
+      {/* self-start: without it, a flex-column child stretches to the full
+          width of its parent by default -- so even though the visible text
+          below caps at max-w-[34rem], this wrapper's actual (invisible)
+          pointer-events-auto hitbox was the full viewport width on desktop,
+          silently eating every click and drag meant for the 3D scene to its
+          right. This is the second half of the "swivel/rotate doesn't work"
+          bug -- the AnimatePresence wrapper fix (App.tsx) removed one
+          blocking layer, this removes the other one that was still there
+          underneath it, confirmed the same way: elementFromPoint at a point
+          well clear of the visible text was still resolving to this div,
+          not the canvas, until self-start shrank its box to match. */}
+      <div className="pointer-events-auto flex min-h-0 flex-col self-start overflow-y-auto px-6 pb-4 sm:px-10 lg:flex-1 lg:justify-center lg:px-14">
         <div className="max-w-[34rem] lg:py-6">
           <motion.p {...rise(0)} className="eyebrow">Belt conveyor · condition monitoring</motion.p>
           {/* Stacked, not squeezed onto one line: at this weight and size
