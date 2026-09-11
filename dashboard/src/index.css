@@ -209,22 +209,34 @@ body {
 .row[aria-current='true'] { background: var(--accent-soft); }
 
 /* A card version of .glass for surfaces that live INSIDE an already-glass
-   panel (the Components grid, inside the glass diagnostics aside) -- no
-   backdrop-filter here, because blurring content that's already behind one
-   blur does nothing but cost a repaint. What makes .glass read as "glass"
-   is the translucent fill and the tinted hairline border, not the blur
-   alone; this keeps that language and adds the one thing a static glass
-   panel doesn't need but an interactive one does: a visible response to
-   hover/press, done by shifting fill and border tint toward the accent,
-   never by adding a shadow or glow. */
+   panel (the Components grid, inside the glass diagnostics aside).
+   Two things had to go wrong and get caught before this looked right:
+   (1) first fill was color-mix(--surface, transparent) -- but --surface
+   (#171a18 dark / #f8f9f8 light) sits almost on top of its own backdrop, so
+   that fill was nearly invisible and it read as "a bordered box", not
+   glass. Rebuilt on --fg instead (near-white in dark mode, near-black in
+   light) at a deliberately strong 7% -- the same "lighten/darken toward
+   the extreme" direction --hover/--press already use, just parameterised
+   so it can be tuned for a resting card rather than a fleeting hover.
+   (2) the inset highlight tried to make --hover "stronger" by mixing it at
+   200% -- color-mix stops are 0-100%, so the whole box-shadow declaration
+   was invalid and the browser silently dropped it to `none`. Confirmed via
+   getComputedStyle, not assumed. Fixed the same way, off --fg directly.
+   Backdrop-filter still contributes the frosted diffusion on top; the wash
+   is what makes that frosting visible with little texture behind to
+   diffuse. Interaction moves fill and border toward the accent, only --
+   no shadow beyond the one flat inset line, no glow. */
 .glass-card {
-  background: color-mix(in srgb, var(--surface) 24%, transparent);
-  border: 1px solid color-mix(in srgb, var(--line-strong) 65%, transparent);
+  background: color-mix(in srgb, var(--fg) 7%, transparent);
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  border: 1px solid var(--line-strong);
   border-radius: 8px;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--fg) 14%, transparent);
   transition: background-color 150ms ease, border-color 150ms ease;
 }
-.glass-card:hover { background: color-mix(in srgb, var(--accent) 5%, var(--hover)); border-color: color-mix(in srgb, var(--accent) 32%, var(--line-strong)); }
-.glass-card:active { background: color-mix(in srgb, var(--accent) 9%, var(--press)); }
+.glass-card:hover { background: color-mix(in srgb, var(--accent) 14%, color-mix(in srgb, var(--fg) 7%, transparent)); border-color: color-mix(in srgb, var(--accent) 45%, var(--line-strong)); }
+.glass-card:active { background: color-mix(in srgb, var(--accent) 22%, color-mix(in srgb, var(--fg) 7%, transparent)); }
 .glass-card[aria-current='true'] { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 45%, var(--line-strong)); }
 
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
