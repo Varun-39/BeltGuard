@@ -340,37 +340,49 @@ python -m scada_sim.modbus_server
 
 ### 8.1 Deployment
 
-The backend (FastAPI + broker + simulator) and the frontend (static Vite
-build) deploy to different kinds of host and are configured independently.
+The backend (FastAPI, a long-lived process holding the WebSocket and
+broadcast loop open) and the frontend (a static Vite build) both deploy to
+Render, as two services from one Blueprint: `render.yaml` at the repo root.
+Push the repo, then in Render "New +" -> "Blueprint" and point it at the
+repo -- it reads `render.yaml` and creates both services.
 
-**Backend -> Railway** (or any host that runs a long-lived process; a plain
-serverless function cannot hold the WebSocket or the broadcast loop open).
-`railway.json` at the repo root points the build at `backend/requirements.txt`
--- the slim runtime set, not the root `requirements.txt`, which also pins the
-vision *training* stack (torch, onnxruntime-gpu, ultralytics, ...) and would
-fail to install on a plain host regardless (torch is pinned to a CUDA
-`+cu128` build only available from PyTorch's own package index, not PyPI).
-Environment variables:
+**Backend** (`beltguard-backend`, type `web`) builds from
+`backend/requirements.txt` -- the slim runtime set, not the root
+`requirements.txt`, which also pins the vision *training* stack (torch,
+onnxruntime-gpu, ultralytics, ...) and would fail to install on a plain host
+regardless (torch is pinned to a CUDA `+cu128` build only available from
+PyTorch's own package index, not PyPI). Environment variables:
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `CORS_ORIGINS` | `http://localhost:3000` | Comma-separated allowed frontend origins |
+| `CORS_ORIGINS` | dashboard's Render URL | Comma-separated allowed frontend origins |
 | `MQTT_HOST` / `MQTT_PORT` | `localhost` / `1883` | Where the broker lives |
 | `SMTP_*`, `ALERT_TO`, `ALERT_FROM` | unset | Alert email, see `backend/notify.py` |
 
-The broker and simulator are optional separate services on the same platform
-(same `backend/requirements.txt`, start commands `python infra/broker.py` and
-`python -m sensors_sim.run`) -- without them the deployed API still serves,
-just with no live readings, the same honest "no data yet" state the console
-already shows locally before `sensors_sim` is started.
+The broker and simulator aren't in `render.yaml` -- they're optional (the
+deployed API serves fine without them, the same honest "no data yet" state
+the console already shows locally before `sensors_sim` is started). To add
+one, create it as its own Render service by hand: a Background Worker for
+`python -m sensors_sim.run` (outbound only, no inbound port needed), or a
+Private Service for `python infra/broker.py` (it needs to accept inbound MQTT
+connections from the backend, which Background Workers can't do). Either way,
+build command `pip install -r backend/requirements.txt`, and point the
+backend's `MQTT_HOST` at the broker service's private hostname (Render's
+internal network resolves other services in the same account by name).
 
-**Frontend -> Vercel.** Set the project's Root Directory to `dashboard`
-(framework preset "Vite" is auto-detected; no `vercel.json` needed -- this is
-a single-page app with no client-side routing to redirect). Set
-`VITE_API_BASE` to the deployed backend's URL (`dashboard/.env.example`) --
-without it the built app requests `/api/...` on its own Vercel origin, where
-nothing answers. `VITE_GOOGLE_CLIENT_ID`, if used, needs the Vercel domain
-added to that OAuth client's authorized origins.
+**Frontend** (`beltguard-dashboard`, type `static`) builds from `dashboard/`
+with `VITE_API_BASE` set to the backend's Render URL (`dashboard/.env.example`)
+-- without it the built app requests `/api/...` on its own Render origin,
+where nothing answers. `VITE_GOOGLE_CLIENT_ID`, if used, isn't in
+`render.yaml` (add it in the Render dashboard, or as another `envVars` entry)
+and needs the dashboard's Render domain added to that OAuth client's
+authorized origins.
+
+Render assigns each service's URL as `https://<name>.onrender.com` if that
+name is free; `render.yaml` assumes both names are available. If either is
+taken, Render appends a suffix instead -- check the actual URLs after the
+first deploy and update `CORS_ORIGINS` / `VITE_API_BASE` to match if they
+differ.
 
 ---
 

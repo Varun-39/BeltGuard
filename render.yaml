@@ -1,0 +1,27 @@
+# Render assigns each service's URL as https://<name>.onrender.com if that
+# name is free. If either name below is taken, Render appends a suffix
+# instead -- after the first deploy, check the actual URLs in the dashboard
+# and update CORS_ORIGINS / VITE_API_BASE to match if they differ.
+services:
+  - type: web
+    name: beltguard-backend
+    runtime: python
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: uvicorn backend.app:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: CORS_ORIGINS
+        value: https://beltguard-dashboard.onrender.com
+      - key: MQTT_HOST
+        value: localhost
+      - key: MQTT_PORT
+        value: "1883"
+
+  - type: web
+    name: beltguard-dashboard
+    runtime: static
+    rootDir: dashboard
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_BASE
+        value: https://beltguard-backend.onrender.com

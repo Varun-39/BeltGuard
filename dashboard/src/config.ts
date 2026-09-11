@@ -1,8 +1,8 @@
 /** Base URL for the backend API and WebSocket. Empty in dev (vite.config.ts
  *  proxies /api, /ws and /stream to localhost:8010) and in any production
  *  deploy where the frontend and backend share an origin. Set VITE_API_BASE
- *  (e.g. https://your-backend.up.railway.app) when they're deployed
- *  separately, as with a Vercel frontend + Railway backend. */
+ *  (e.g. https://beltguard-backend.onrender.com) when they're deployed
+ *  as separate Render services (see render.yaml). */
 // Optional-chained on `.env` itself, not just the property: this file is
 // imported (transitively) by auth.check.ts, which runs under plain Node,
 // where import.meta has no `env` at all -- only Vite's pipeline injects it.

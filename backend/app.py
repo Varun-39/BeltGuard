@@ -203,7 +203,7 @@ async def lifespan(_app: FastAPI):
     client.on_disconnect = _on_disconnect
     # Non-fatal: the API and its history endpoints stay useful with no broker,
     # and paho reconnects on its own once one appears. Host/port are env-
-    # configurable because a deployed backend (Railway) and its broker are
+    # configurable because a deployed backend (Render) and its broker are
     # not both "localhost" the way they are in local dev.
     with suppress(OSError):
         client.connect_async(os.environ.get("MQTT_HOST", "localhost"),
@@ -229,7 +229,7 @@ app.add_middleware(
 
 @app.get("/")
 def root():
-    """Bare landing for the API root -- a host's health check (Railway's
+    """Bare landing for the API root -- a host's health check (Render's
     default probes `/`) or a person opening the backend URL directly gets a
     real answer instead of a bare 404. `/api/status` has the actual telemetry;
     this just confirms the service is up. Interactive docs at `/docs`, from
