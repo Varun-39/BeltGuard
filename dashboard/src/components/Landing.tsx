@@ -47,10 +47,9 @@ export function Landing({ frame, connected, reduced, dark, auth, onEnter }: {
     // Three rows, not one box that centers everything inside itself: a
     // header, a content block that centers WITHIN what's left, and a footer
     // pinned to the bottom edge. A phone has plenty of height and very little
-    // to say, and centering the whole thing in that height left a dead strip
-    // below the button; anchoring the footer there instead gives that space
-    // a job (provenance -- source count, simulation notice) instead of
-    // leaving it blank.
+    // to say; centering the content in the leftover space (rather than
+    // top-anchoring it, which dumped all the slack into one dead strip right
+    // above the footer) splits that slack above and below instead.
     <div className="scaled pointer-events-none absolute inset-0 flex flex-col">
       <div className="pointer-events-auto flex shrink-0 items-center gap-2.5 px-6 py-5 text-[14px] sm:px-10 lg:px-14">
         <Mark dark={dark} />
@@ -61,12 +60,10 @@ export function Landing({ frame, connected, reduced, dark, auth, onEnter }: {
           mostly-empty space read worse than the empty space did -- it made
           the emptiness look like a broken placeholder instead of an accident.
           Its only job is keeping the wordmark clear of the machine, which
-          the portrait camera parks in roughly this band; content is
-          top-anchored below it rather than centred, so a tall phone doesn't
-          reopen the same dead-space problem one level down. */}
+          the portrait camera parks in roughly this band. */}
       <div className="h-[22vh] max-h-[190px] min-h-[130px] shrink-0 lg:hidden" />
 
-      <div className="pointer-events-auto flex min-h-0 flex-1 flex-col justify-start overflow-y-auto px-6 pb-4 sm:justify-center sm:px-10 lg:px-14">
+      <div className="pointer-events-auto flex min-h-0 flex-1 flex-col justify-center overflow-y-auto px-6 pb-4 sm:px-10 lg:px-14">
         <div className="max-w-[34rem] lg:py-6">
           <motion.p {...rise(0)} className="eyebrow">Belt conveyor · condition monitoring</motion.p>
           {/* Stacked, not squeezed onto one line: at this weight and size
