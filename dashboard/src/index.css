@@ -190,17 +190,33 @@ body {
 /* Frosted glass -- spent only on surfaces that genuinely float over
    something (a popover, a label pinned on the 3D twin, the diagnostics
    panel beside it), never as a state signal. A translucent fill plus blur
-   plus a hairline border tinted toward the accent, and NOTHING else: no
-   glow halo, no radial gradient, no shimmer sweep. Those are what made the
-   reference this was modelled on read as a generic AI dashboard; this
-   earns depth without any of it. Fill stays dense enough (78% of the
-   opaque surface colour) that text on top keeps its contrast regardless of
-   what's blurred behind -- a popover is not the place to gamble on AA. */
+   plus a hairline border tinted toward the accent, and NOTHING else in the
+   sense that matters: no glow halo (a colour-tinted blur behind the
+   element), no radial gradient, no shimmer sweep. Those are what made the
+   reference this was modelled on read as a generic AI dashboard.
+   A plain, uncoloured elevation shadow and a one-pixel top highlight are a
+   different thing from a glow -- they're what tells a pane of actual glass
+   apart from a tinted rectangle: light catches its top edge, and it casts
+   an ordinary shadow like any other physical object resting above what's
+   behind it. Both neutral, both cheap, neither is the effect the anti-glow
+   rule exists to keep out. */
 .glass {
   background: color-mix(in srgb, var(--surface) 78%, transparent);
   backdrop-filter: blur(20px) saturate(130%);
   -webkit-backdrop-filter: blur(20px) saturate(130%);
   border: 1px solid color-mix(in srgb, var(--accent) 16%, var(--line));
+}
+
+/* The elevation half of the above, split out rather than folded into .glass
+   itself: the twin's own small floating labels already carry their own
+   fitted shadow (shadow-[0_1px_3px_...], a Tailwind utility) sized for a
+   pill a few characters wide -- and because .glass lives outside any
+   @layer, it would beat that utility on specificity and stamp every one of
+   those labels with a panel-sized shadow if the shadow lived here instead.
+   Add .glass-panel alongside .glass only on surfaces actually panel-sized
+   (the diagnostics aside, the sheet popovers, the user menu). */
+.glass-panel {
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.16), inset 0 1px 0 color-mix(in srgb, var(--fg) 10%, transparent);
 }
 
 .row { border-radius: 6px; transition: background-color 120ms ease; }
@@ -227,16 +243,16 @@ body {
    diffuse. Interaction moves fill and border toward the accent, only --
    no shadow beyond the one flat inset line, no glow. */
 .glass-card {
-  background: color-mix(in srgb, var(--fg) 7%, transparent);
-  backdrop-filter: blur(14px) saturate(160%);
-  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  background: color-mix(in srgb, var(--fg) 9%, transparent);
+  backdrop-filter: blur(18px) saturate(170%);
+  -webkit-backdrop-filter: blur(18px) saturate(170%);
   border: 1px solid var(--line-strong);
   border-radius: 8px;
-  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--fg) 14%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--fg) 16%, transparent);
   transition: background-color 150ms ease, border-color 150ms ease;
 }
-.glass-card:hover { background: color-mix(in srgb, var(--accent) 14%, color-mix(in srgb, var(--fg) 7%, transparent)); border-color: color-mix(in srgb, var(--accent) 45%, var(--line-strong)); }
-.glass-card:active { background: color-mix(in srgb, var(--accent) 22%, color-mix(in srgb, var(--fg) 7%, transparent)); }
+.glass-card:hover { background: color-mix(in srgb, var(--accent) 16%, color-mix(in srgb, var(--fg) 9%, transparent)); border-color: color-mix(in srgb, var(--accent) 48%, var(--line-strong)); }
+.glass-card:active { background: color-mix(in srgb, var(--accent) 24%, color-mix(in srgb, var(--fg) 9%, transparent)); }
 .glass-card[aria-current='true'] { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 45%, var(--line-strong)); }
 
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
@@ -254,7 +270,7 @@ body {
   padding: 0;
   border-radius: 10px;
   color: var(--fg);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.14), 0 2px 6px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.14), 0 2px 6px rgba(0, 0, 0, 0.06), inset 0 1px 0 color-mix(in srgb, var(--fg) 10%, transparent);
   zoom: var(--ui-scale);
 }
 

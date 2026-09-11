@@ -82,6 +82,11 @@ export type PartId = 'tail' | 'takeup' | 'idler04' | 'splice' | 'belt' | 'camera
 export type Part = {
   name: string
   kind: string
+  /** One plain sentence: what this actually is/does, no conveyor jargon.
+   *  `kind` stays technical (that's what an operator wants); this is for
+   *  the reader who has never seen the inside of a conveyor and just asked
+   *  "what even is an idler?" -- a fair question this UI wasn't answering. */
+  about: string
   location: string
   subsystems: Subsystem[]
   metrics: MetricId[]
@@ -93,35 +98,49 @@ export const BELT_LENGTH_M = 250        // BeltModel.belt_length_m, centre to ce
 
 export const PARTS: Record<PartId, Part> = {
   idler04: {
-    name: 'Idler 04', kind: 'Carry idler set, three-roll', location: '120 m from tail pulley',
+    name: 'Idler 04', kind: 'Carry idler set, three-roll',
+    about: 'A set of rollers that the belt rides on, holding its shape and keeping it running straight.',
+    location: '120 m from tail pulley',
     subsystems: ['bearing'], metrics: ['rms', 'kurtosis', 'temp', 'spl', 'tonal'],
   },
   splice: {
-    name: 'Splice', kind: 'Belt joint', location: 'Travels with the belt',
+    name: 'Splice', kind: 'Belt joint',
+    about: "The seam where the belt's two ends are joined into one continuous loop -- its weakest point.",
+    location: 'Travels with the belt',
     subsystems: ['joint'], metrics: ['tension', 'crest', 'slip'],
     inspection: 'joint',
     note: 'Measured indirectly: tension loss at the take-up, impact at idler 04, slip at the tail.',
   },
   belt: {
-    name: 'Belt', kind: 'Troughed conveyor belt', location: `${BELT_LENGTH_M} m centre to centre`,
+    name: 'Belt', kind: 'Troughed conveyor belt',
+    about: 'The rubber loop itself, the thing actually carrying the material.',
+    location: `${BELT_LENGTH_M} m centre to centre`,
     subsystems: ['belt_body', 'alignment'], metrics: ['speed', 'tonal', 'spl'],
     inspection: 'defects',
   },
   takeup: {
-    name: 'Take-up', kind: 'Take-up with tension load cell', location: '8 m from tail pulley',
+    name: 'Take-up', kind: 'Take-up with tension load cell',
+    about: 'Keeps the belt pulled tight as it stretches over time, so it grips the pulleys instead of slipping.',
+    location: '8 m from tail pulley',
     subsystems: [], metrics: ['tension', 'load'],
   },
   tail: {
-    name: 'Tail pulley', kind: 'Non-drive pulley with tachometer', location: 'Tail end, 0 m',
+    name: 'Tail pulley', kind: 'Non-drive pulley with tachometer',
+    about: 'The roller at the far end that the belt loops around -- it turns freely, the motor is at the other end.',
+    location: 'Tail end, 0 m',
     subsystems: [], metrics: ['speed', 'slip'],
   },
   head: {
-    name: 'Head pulley', kind: 'Drive pulley', location: `Head end, ${BELT_LENGTH_M} m`,
+    name: 'Head pulley', kind: 'Drive pulley',
+    about: "The motor-driven roller that actually pulls the belt around the loop -- the conveyor's engine.",
+    location: `Head end, ${BELT_LENGTH_M} m`,
     subsystems: [], metrics: [],
     note: 'Not instrumented. Belt speed and drive slip are measured at the tail pulley.',
   },
   camera: {
-    name: 'Inspection camera', kind: 'Fixed-mount vision camera', location: 'Head end, over the carry strand',
+    name: 'Inspection camera', kind: 'Fixed-mount vision camera',
+    about: 'Watches the belt surface as it passes, looking for visible tears, holes or wear.',
+    location: 'Head end, over the carry strand',
     subsystems: [], metrics: [], inspection: 'defects',
   },
 }

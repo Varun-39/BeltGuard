@@ -108,8 +108,18 @@ export default function App() {
                       selected={selected} hovered={hovered} onSelect={setSelected} onHover={setHovered} />
               </Suspense>
               <AnimatePresence>
+                {/* pointer-events-none here too, not just on Landing's own
+                    root: this wrapper only exists so AnimatePresence has
+                    something to animate on exit, but being an unstyled
+                    "absolute inset-0" div, it's a full-viewport hit-test
+                    target by default -- it was silently eating every click,
+                    hover and drag meant for the 3D scene underneath,
+                    including the manual orbit-drag, the whole time the
+                    landing screen was showing. Landing's own children still
+                    opt back in individually via pointer-events-auto, same
+                    as before. */}
                 {!entered && (
-                  <motion.div key="landing" className="absolute inset-0"
+                  <motion.div key="landing" className="pointer-events-none absolute inset-0"
                               exit={{ opacity: 0, y: -12, transition: { duration: 0.28, ease: [0.4, 0, 1, 1] } }}>
                     <Landing frame={frame} connected={connected} reduced={reduced} dark={dark} auth={auth} onEnter={enter} />
                   </motion.div>
@@ -127,7 +137,7 @@ export default function App() {
               supplies its own border on every edge, so no Tailwind border
               utility here would survive the cascade anyway. */}
           <aside id="diagnostics" tabIndex={-1} inert={!entered} aria-label="Diagnostics"
-                 className={`glass focus:outline-none lg:min-h-0 lg:overflow-y-auto ${entered ? '' : 'hidden lg:block'}`}>
+                 className={`glass glass-panel focus:outline-none lg:min-h-0 lg:overflow-y-auto ${entered ? '' : 'hidden lg:block'}`}>
             <motion.div className="scaled" initial={false}
                         animate={entered ? { opacity: 1, x: 0 } : { opacity: 0, x: 24 }}
                         transition={{ duration: 0.5, ease: [0.2, 0.8, 0.2, 1], delay: entered ? 0.18 : 0 }}>
@@ -202,7 +212,7 @@ function UserChip({ user, onSignOut }: { user: NonNullable<Auth['user']>; onSign
         )}
       </button>
       {open && (
-        <div role="menu" className="glass absolute top-full right-0 z-20 mt-1.5 w-44 rounded-[8px] py-1">
+        <div role="menu" className="glass glass-panel absolute top-full right-0 z-20 mt-1.5 w-44 rounded-[8px] py-1">
           <p className="truncate px-3 py-1.5 text-[12px] text-[var(--fg-2)]">{user.name}</p>
           <button type="button" role="menuitem" onClick={() => { setOpen(false); onSignOut() }}
                   className="w-full cursor-pointer px-3 py-1.5 text-left text-[12px] transition-colors hover:bg-[var(--hover)]">

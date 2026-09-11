@@ -85,7 +85,7 @@ function Overview({ frame, rul, events, smtp, baseline, hovered, onSelect, onHov
           {rows.map(({ id, sub, v }) => (
             <button key={id} type="button" onClick={() => onSelect(id)}
                     onPointerEnter={() => onHover(id)} onPointerLeave={() => onHover(null)}
-                    aria-current={hovered === id}
+                    aria-current={hovered === id} title={PARTS[id].about}
                     className="glass-card flex cursor-pointer flex-col gap-1 px-3 py-2.5 text-left">
               <span className="text-[13px]">{PARTS[id].name}</span>
               <span className="truncate text-[11px] text-[var(--fg-3)]">
@@ -165,6 +165,7 @@ function PartView({ id, frame, series, rul, events, smtp, onSelect }: Props & { 
         </button>
         <h2 className="display mt-2 text-[28px]">{part.name}</h2>
         <p className="mt-1 text-[12px] text-[var(--fg-2)]">{part.kind} · {part.location}</p>
+        <p className="mt-1.5 text-[12px] leading-relaxed text-[var(--fg-3)]">{part.about}</p>
 
         {subs.length > 0 && (
           <dl className="mt-4 space-y-1.5">

@@ -774,7 +774,19 @@ export function Twin({ frame, paused, levels, mode, reduced, themeKey, selected,
           asks for PCFSoftShadowMap, which this three.js version warns is
           deprecated on every single frame -- ~2 log lines/sec of noise for a
           soft edge nobody sees on the 512px shadow this scene renders. */}
+      {/* touchAction: camera-controls sets this to 'none' on the canvas itself
+          once, on connect -- but R3F re-applies its OWN style object (size,
+          display) on every resize, and that overwrites the whole inline
+          style, wiping the one camera-controls set. Passing it here instead
+          makes it part of what R3F itself reapplies each time, so it
+          survives resizes. Without it, a touch drag is ambiguous between
+          "orbit the camera" and "scroll the page", and the browser's own
+          touch handling claims it for scrolling before any pointer/touch
+          listener sees a meaningful drag -- mouse drag is unaffected
+          (touch-action only governs touch gestures), which is exactly why
+          this shipped invisibly: it worked in every test done with a mouse. */}
       <Canvas shadows="basic" dpr={[1, 2]} camera={{ fov: 30, near: 0.1, far: 200, position: [-8, 6, 14] }}
+              style={{ touchAction: 'none' }}
               gl={{ antialias: true, alpha: true, preserveDrawingBuffer: true }}
               resize={{ debounce: 0, scroll: false }}
               onCreated={({ gl }) => gl.setClearColor(0x000000, 0)}
