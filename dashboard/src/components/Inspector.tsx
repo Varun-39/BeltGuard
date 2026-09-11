@@ -53,7 +53,9 @@ function Overview({ frame, rul, events, smtp, baseline, hovered, onSelect, onHov
   const delta = baseline ? Math.round(h.overall - baseline.value) : null
   // Fixed order, never re-sorted live: rows must not move under the cursor
   // while scores change twice a second. Status words carry the ranking.
-  const rows = PART_ORDER.map((id) => {
+  // Camera excluded here -- it gets its own preview tile next to Health
+  // index instead of a third, differently-shaped entry in this grid.
+  const rows = PART_ORDER.filter((id) => id !== 'camera').map((id) => {
     const subs = PARTS[id].subsystems
     const worstSub = subs.length
       ? subs.reduce((a, b) => ((h.subsystems[b] ?? 100) < (h.subsystems[a] ?? 100) ? b : a)) : null
@@ -64,20 +66,28 @@ function Overview({ frame, rul, events, smtp, baseline, hovered, onSelect, onHov
 
   return (
     <>
-      <div className="px-5 pt-5 pb-6">
-        <h2 className="heading">Health index</h2>
-        <div className="mt-2 flex items-baseline gap-3">
-          <span className="num text-[44px] leading-none font-600 tracking-[-0.025em]">{h.overall}</span>
-          <span className="num text-[13px] text-[var(--fg-3)]">/ 100</span>
-          <LevelText level={level} className="ml-auto text-[13px] font-500" />
+      {/* Camera preview left, Health index shifted right to sit beside it --
+          a live picture of the belt is a more useful "first thing you see"
+          than a second static number, and pairing them here means the
+          Components grid below is 6 same-shaped cards (2x3) instead of 7
+          with the odd one (camera, no score) trailing alone in its own row. */}
+      <div className="grid grid-cols-2 gap-2 px-5 pt-5 pb-6">
+        <CameraPreview frame={frame} onSelect={onSelect} />
+        <div className="glass-card flex flex-col px-3 py-2.5 text-left">
+          <span className="heading">Health index</span>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="num text-[32px] leading-none font-600 tracking-[-0.025em]">{h.overall}</span>
+            <span className="num text-[11px] text-[var(--fg-3)]">/ 100</span>
+            <LevelText level={level} className="ml-auto text-[11px] font-500" />
+          </div>
+          <p className="mt-2 text-[11px] leading-snug text-[var(--fg-2)]">
+            {delta === null ? 'No baseline stored yet'
+              : delta === 0 ? `Unchanged since ${baseline!.label}`
+              : `${delta > 0 ? 'Up' : 'Down'} ${Math.abs(delta)} since ${baseline!.label}`}
+          </p>
+          <Since events={events} state={h.state} now={frame.ts} />
+          <RulLine rul={rul} />
         </div>
-        <p className="mt-3 text-[12px] text-[var(--fg-2)]">
-          {delta === null ? 'No baseline stored yet'
-            : delta === 0 ? `Unchanged since ${baseline!.label}`
-            : `${delta > 0 ? 'Up' : 'Down'} ${Math.abs(delta)} since ${baseline!.label}`}
-        </p>
-        <Since events={events} state={h.state} now={frame.ts} />
-        <RulLine rul={rul} />
       </div>
 
       <Section title="Components">
@@ -142,6 +152,39 @@ function RulLine({ rul }: { rul: Rul | null }) {
         ? 'Already below the critical threshold.'
         : <>Projected to reach critical in <span className="num text-[var(--fg)]">{days.toFixed(1)} days</span>{ci} · {rul.confidence} confidence</>}
     </p>
+  )
+}
+
+/** Compact live-video counterpart to the Health index tile it sits beside --
+ *  the full detection list and defect breakdown stay in the part detail
+ *  view (Inspection, below); this is just enough to show the feed is alive
+ *  and get you there. Same retry-on-drop behaviour as Inspection, since a
+ *  stalled MJPEG connection shouldn't need a page reload to recover either. */
+function CameraPreview({ frame, onSelect }: { frame: Frame; onSelect: (id: PartId | null) => void }) {
+  const [live, setLive] = useState(true)
+  useEffect(() => {
+    if (live) return
+    const t = setTimeout(() => setLive(true), 5000)
+    return () => clearTimeout(t)
+  }, [live])
+  return (
+    <button type="button" onClick={() => onSelect('camera')}
+            className="glass-card flex cursor-pointer flex-col gap-1.5 overflow-hidden p-1.5 text-left">
+      <div className="relative overflow-hidden rounded-[6px] bg-black">
+        {live ? (
+          <img src={`${API_BASE}/stream`} alt="Inspection camera over the carry strand"
+               className="aspect-[4/3] w-full object-cover" onError={() => setLive(false)} />
+        ) : (
+          <div className="grid aspect-[4/3] place-items-center bg-[var(--viewport)] text-center text-[11px] text-[var(--fg-3)]">
+            Not reachable
+          </div>
+        )}
+      </div>
+      <span className="flex items-baseline justify-between gap-2 px-1.5 pb-1">
+        <span className="text-[13px]">Inspection camera</span>
+        <span className="text-[11px] text-[var(--fg-3)]">{frame.health.vision_active ? 'Receiving' : 'Offline'}</span>
+      </span>
+    </button>
   )
 }
 

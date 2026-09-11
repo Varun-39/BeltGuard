@@ -3,8 +3,16 @@
 # NOTE: torch/torchvision are pinned to the CUDA 12.8 build, which is NOT on
 # PyPI. Blackwell GPUs (RTX 50-series, sm_120) require cu128 or newer. Install
 # those two FIRST:
-# CPU-only machines can drop the +cu128 suffix and use plain PyPI. Training is
-# ~20x slower there; inference runs on ONNX and is unaffected.
+# CPU-only machines (or a machine whose CUDA driver can't load these DLLs --
+# confirmed on this project 2026-09-12, `import torch` failing on
+# c10_cuda.dll) should swap BOTH torch/torchvision below AND onnxruntime-gpu
+# for the plain package, installed from the CPU index instead:
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+#   pip install onnxruntime
+# (then reinstall the pinned numpy version below -- the CPU torch install
+# pulls its own newer one, which conflicts with roboflow's pin). Training is
+# ~20x slower there; inference (vision/service.py) runs on ONNX either way
+# and is unaffected.
 #
 # numpy is pinned deliberately: installing onnxruntime-gpu unpinned pulled a
 # second numpy over the top of the first, leaving a half-and-half install that

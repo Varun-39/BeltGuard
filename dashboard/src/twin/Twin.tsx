@@ -526,14 +526,17 @@ const UP = new THREE.Vector3(0, 1, 0)
 // continuous spin. A full 360 orbit inevitably swings the machine over the
 // text and, on the far side, leaves it stranded with empty space between it
 // and the nameplate -- both looked broken. Bounded to a fraction of that,
-// keeping it inside the frame `az: 0.95` was composed for -- but 6 degrees
-// over 17 seconds (the original figures) turned out too subtle to read as
-// motion at all on a real laptop; it moves (confirmed live: azimuthAngle and
-// camera position both changing frame to frame), it just doesn't LOOK like
-// it's doing anything from a normal glance. Widened and sped up so the sway
-// itself is legible, still well short of a distracting spin.
-const SWIVEL_AMPLITUDE = THREE.MathUtils.degToRad(10)
-const SWIVEL_PERIOD_S = 11
+// keeping it inside the frame `az: 0.95` was composed for.
+// Tuned twice now, both times because it moved (confirmed live, both times,
+// with azimuthAngle and camera.position genuinely changing frame to frame --
+// and the second time with a direct screenshot comparison a few seconds
+// apart, showing the rendered angle visibly different) but still read as
+// static at a normal glance: 6°/17s, then 10°/11s, neither enough. Widened
+// further rather than re-confirming the same subtle motion a third time --
+// a full cycle in well under 10s, covering a visibly larger arc, is the
+// actual fix for "I can see the state changing but not the picture."
+const SWIVEL_AMPLITUDE = THREE.MathUtils.degToRad(18)
+const SWIVEL_PERIOD_S = 7
 
 /** Distance that fits every corner of `box` in the frustum from this angle.
  *  Exact for elongated parts, where a bounding sphere leaves them tiny. */
