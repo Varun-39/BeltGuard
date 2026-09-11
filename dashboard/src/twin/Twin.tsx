@@ -571,12 +571,14 @@ function Rig({ root, parts, motion, resetKey, onMoved, reduced }: {
     // Aspect from the canvas size itself: camera.aspect can lag a resize by a frame.
     const aspect = size.width / size.height
     // Portrait hero (a phone): the nameplate stacks above the machine rather
-    // than beside it, and needs real headroom, not the 30% used landscape --
-    // a phone screen is mostly that text. Zoom out further too, so the
-    // machine that's left still reads as a whole conveyor, not one idler.
+    // than beside it, and needs real headroom, not the 30% used landscape.
+    // Zoom out a little so the whole conveyor reads, not one idler -- but
+    // only a little: the previous *1.8 read as "too small to notice, too
+    // much empty grid around it", which is a worse failure than a machine
+    // that fills its band generously.
     const portrait = mode === 'hero' && aspect <= 1.2
     const view = mode === 'hero'
-      ? (portrait ? { ...VIEWS.hero, pad: VIEWS.hero.pad * 1.8 } : VIEWS.hero)
+      ? (portrait ? { ...VIEWS.hero, pad: VIEWS.hero.pad * 1.3 } : VIEWS.hero)
       : VIEWS[selected ?? 'overview']
     const box = selected === 'splice'
       ? new THREE.Box3().setFromCenterAndSize(motion.current.spliceAt, new THREE.Vector3(SPLICE_LEN, 0.4, BELT_W))
@@ -600,7 +602,7 @@ function Rig({ root, parts, motion, resetKey, onMoved, reduced }: {
     const halfH = dist * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))
     const [fx, fy] = mode !== 'hero' ? [0, 0]
       : aspect > 1.2 ? [-Math.min(halfH * aspect * 0.15, halfH * 0.45), 0]
-      : [0, halfH * 0.62]
+      : [0, halfH * 0.5]
     c.setFocalOffset(fx, fy, 0, animate)
     // Landscape hero only: re-centre the sway on this framing's own azimuth,
     // not read back off the controls (which mid-transition would be wherever
