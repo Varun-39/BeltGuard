@@ -81,29 +81,25 @@ function Overview({ frame, rul, events, smtp, baseline, hovered, onSelect, onHov
       </div>
 
       <Section title="Components">
-        <ul className="-mx-2">
+        <div className="grid grid-cols-2 gap-2">
           {rows.map(({ id, sub, v }) => (
-            <li key={id}>
-              <button type="button" onClick={() => onSelect(id)}
-                      onPointerEnter={() => onHover(id)} onPointerLeave={() => onHover(null)}
-                      aria-current={hovered === id}
-                      className="row flex w-full cursor-pointer items-baseline gap-3 px-2 py-2 text-left">
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[13px]">{PARTS[id].name}</span>
-                  <span className="block truncate text-[12px] text-[var(--fg-3)]">
-                    {sub ? SUBSYSTEM_LABEL[sub] : PARTS[id].kind}
-                  </span>
+            <button key={id} type="button" onClick={() => onSelect(id)}
+                    onPointerEnter={() => onHover(id)} onPointerLeave={() => onHover(null)}
+                    aria-current={hovered === id}
+                    className="glass-card flex cursor-pointer flex-col gap-1 px-3 py-2.5 text-left">
+              <span className="text-[13px]">{PARTS[id].name}</span>
+              <span className="truncate text-[11px] text-[var(--fg-3)]">
+                {sub ? SUBSYSTEM_LABEL[sub] : PARTS[id].kind}
+              </span>
+              {v !== null && (
+                <span className="mt-1.5 flex items-baseline justify-between gap-2">
+                  <span className="num text-[16px] font-600">{v}</span>
+                  <LevelText level={levelFor(v)} className="text-[11px]" />
                 </span>
-                {v !== null && (
-                  <>
-                    <span className="num text-[13px] font-500">{v}</span>
-                    <LevelText level={levelFor(v)} className="w-[70px] justify-end text-[12px]" />
-                  </>
-                )}
-              </button>
-            </li>
+              )}
+            </button>
           ))}
-        </ul>
+        </div>
       </Section>
 
       {(h.subsystems[worstSub] ?? 100) < 80 && <Action subsystem={worstSub} rul={rul} />}

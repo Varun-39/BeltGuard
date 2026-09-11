@@ -202,7 +202,7 @@ function UserChip({ user, onSignOut }: { user: NonNullable<Auth['user']>; onSign
         )}
       </button>
       {open && (
-        <div role="menu" className="absolute top-full right-0 z-20 mt-1.5 w-44 rounded-[8px] border border-[var(--line)] bg-[var(--surface)] py-1 shadow-[0_8px_24px_rgba(0,0,0,0.12)]">
+        <div role="menu" className="glass absolute top-full right-0 z-20 mt-1.5 w-44 rounded-[8px] py-1">
           <p className="truncate px-3 py-1.5 text-[12px] text-[var(--fg-2)]">{user.name}</p>
           <button type="button" role="menuitem" onClick={() => { setOpen(false); onSignOut() }}
                   className="w-full cursor-pointer px-3 py-1.5 text-left text-[12px] transition-colors hover:bg-[var(--hover)]">

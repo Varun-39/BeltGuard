@@ -208,6 +208,25 @@ body {
 .row:active { background: var(--press); }
 .row[aria-current='true'] { background: var(--accent-soft); }
 
+/* A card version of .glass for surfaces that live INSIDE an already-glass
+   panel (the Components grid, inside the glass diagnostics aside) -- no
+   backdrop-filter here, because blurring content that's already behind one
+   blur does nothing but cost a repaint. What makes .glass read as "glass"
+   is the translucent fill and the tinted hairline border, not the blur
+   alone; this keeps that language and adds the one thing a static glass
+   panel doesn't need but an interactive one does: a visible response to
+   hover/press, done by shifting fill and border tint toward the accent,
+   never by adding a shadow or glow. */
+.glass-card {
+  background: color-mix(in srgb, var(--surface) 24%, transparent);
+  border: 1px solid color-mix(in srgb, var(--line-strong) 65%, transparent);
+  border-radius: 8px;
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+.glass-card:hover { background: color-mix(in srgb, var(--accent) 5%, var(--hover)); border-color: color-mix(in srgb, var(--accent) 32%, var(--line-strong)); }
+.glass-card:active { background: color-mix(in srgb, var(--accent) 9%, var(--press)); }
+.glass-card[aria-current='true'] { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 45%, var(--line-strong)); }
+
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
 
 /* Native popover, positioned under the top bar's right edge. Glass here is
