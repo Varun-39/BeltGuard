@@ -19,12 +19,13 @@ from __future__ import annotations
 
 import asyncio
 import json
+import secrets
 import time
 from collections import deque
 from contextlib import asynccontextmanager, suppress
 
 import paho.mqtt.client as mqtt
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 from .fusion import evaluate, score
@@ -51,6 +52,20 @@ clients: set[WebSocket] = set()
 # In-flight alert-send tasks, held so the loop cannot collect them mid-send.
 _pending: set[asyncio.Task] = set()
 stats = {"messages": 0, "connected": False, "last_msg_ts": 0.0}
+
+# "Open on phone" session handoff (dashboard/src/components/PhoneSheet.tsx):
+# token -> (already-decoded Google profile, expiry). Deliberately not a real
+# session store -- one round trip, single-use, in memory, gone in 2 minutes.
+# The QR code carries only the random TOKEN, never the profile itself, so no
+# personal data ever appears in a URL or a scanned code.
+PAIR_TTL_S = 120.0
+_pairs: dict[str, tuple[dict, float]] = {}
+
+
+def _prune_pairs() -> None:
+    now = time.time()
+    for k in [k for k, (_, exp) in _pairs.items() if exp < now]:
+        del _pairs[k]
 
 
 def _on_connect(client, _u, _f, rc, _p=None):
@@ -248,6 +263,29 @@ def alerts():
             for a in reversed(notifier.log)
         ],
     }
+
+
+@app.post("/api/pair")
+def create_pair(profile: dict):
+    """A signed-in browser calls this before rendering its 'open on phone'
+    QR code. `profile` is the already-decoded Google user object (name,
+    email, picture, sub) -- never a raw ID token, and never re-verified
+    here, same trust level the client already granted itself (see auth.ts)."""
+    _prune_pairs()
+    token = secrets.token_urlsafe(16)
+    _pairs[token] = (profile, time.time() + PAIR_TTL_S)
+    return {"token": token}
+
+
+@app.get("/api/pair/{token}")
+def redeem_pair(token: str):
+    """Single-use: popped on the first read, so a token cannot be replayed
+    even inside its own TTL -- one scan, one phone."""
+    _prune_pairs()
+    entry = _pairs.pop(token, None)
+    if entry is None:
+        raise HTTPException(404, "expired or already used")
+    return entry[0]
 
 
 @app.get("/api/rul")

@@ -138,6 +138,38 @@ export function useEvents(enabled: boolean) {
   return { events, smtp }
 }
 
+/** Health at the start of the stored window, for the KPI delta.
+ *
+ *  Asks for one shift (8 h). The store may hold less than that -- a demo run
+ *  is minutes old -- so the label states the span it actually covers rather
+ *  than claiming "last shift" for a two-minute-old baseline. */
+const SHIFT_MIN = 480
+export function useBaseline(enabled: boolean) {
+  const [base, setBase] = useState<{ value: number; label: string } | null>(null)
+  useEffect(() => {
+    if (!enabled) return
+    let alive = true
+    const load = () =>
+      fetch(`/api/health/history?minutes=${SHIFT_MIN}`)
+        .then((r) => r.json())
+        .then((rows: { ts: number; overall: number }[]) => {
+          if (!alive || !rows.length) return
+          const mins = (Date.now() / 1000 - rows[0].ts) / 60
+          const label = mins >= SHIFT_MIN * 0.95 ? 'last shift'
+            : mins >= 90 ? `${(mins / 60).toFixed(1)} h ago` : `${Math.max(1, Math.round(mins))} min ago`
+          setBase({ value: rows[0].overall, label })
+        })
+        .catch(() => {})
+    load()
+    const id = setInterval(load, 60000)
+    return () => {
+      alive = false
+      clearInterval(id)
+    }
+  }, [enabled])
+  return base
+}
+
 /** RUL refits a trend over stored history, so it is polled slowly rather than
  *  pushed: the answer moves on a scale of hours, not half-seconds. */
 export function useRul(enabled: boolean) {
