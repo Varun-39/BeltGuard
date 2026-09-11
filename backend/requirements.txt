@@ -1,0 +1,14 @@
+# Runtime deps for the backend API (app.py), the MQTT broker (infra/broker.py)
+# and the sensor simulator (sensors_sim/run.py) -- NOT the repo-root
+# requirements.txt, which also pins the vision training stack (torch,
+# onnxruntime-gpu, ultralytics, ...). That stack is irrelevant to serving the
+# dashboard and torch's +cu128 build isn't resolvable from plain PyPI, so a
+# deploy (Railway) installing the root file would fail outright. Kept in sync
+# by hand with the matching lines in requirements.txt -- same versions.
+fastapi==0.141.1
+uvicorn==0.52.4
+websockets==15.0.1
+paho-mqtt==2.1.0
+amqtt==0.12.0
+numpy==2.3.5
+python-dotenv==1.2.3

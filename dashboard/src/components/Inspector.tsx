@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { AnimatePresence } from 'motion/react'
+import { API_BASE } from '../config'
 import type { Evt, Frame, Rul } from '../useLive'
 import {
   ACTIONS, DEFECT_LABEL, LEVEL_LABEL, METRICS, PARTS, PART_ORDER, SENSOR_PART, SENSOR_TYPE, SUBSYSTEM_LABEL,
@@ -289,7 +290,7 @@ function Inspection({ frame, mode }: { frame: Frame; mode: 'joint' | 'defects' }
     <Section title="Inspection camera" aside={frame.health.vision_active ? 'Receiving' : 'Offline'}>
       <div className="overflow-hidden rounded-[8px] border border-[var(--line)] bg-black">
         {live ? (
-          <img src="/stream" alt="Inspection camera over the carry strand, with detections"
+          <img src={`${API_BASE}/stream`} alt="Inspection camera over the carry strand, with detections"
                className="aspect-[4/3] w-full object-contain" onError={() => setLive(false)} />
         ) : (
           <div className="grid aspect-[4/3] place-items-center bg-[var(--viewport)] p-4 text-center text-[12px] text-[var(--fg-2)]">

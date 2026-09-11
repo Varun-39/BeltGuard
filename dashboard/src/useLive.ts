@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { API_BASE, WS_URL } from './config'
 
 export type Reasons = {
   subsystem: string
@@ -59,8 +60,7 @@ export function useLive(paused: boolean) {
     let closed = false
 
     const connect = () => {
-      const proto = location.protocol === 'https:' ? 'wss' : 'ws'
-      ws = new WebSocket(`${proto}://${location.host}/ws`)
+      ws = new WebSocket(WS_URL)
 
       ws.onopen = () => {
         setConnected(true)
@@ -120,7 +120,7 @@ export function useEvents(enabled: boolean) {
     if (!enabled) return
     let alive = true
     const load = () =>
-      fetch('/api/alerts')
+      fetch(`${API_BASE}/api/alerts`)
         .then((r) => r.json())
         .then((d) => {
           if (!alive) return
@@ -150,7 +150,7 @@ export function useBaseline(enabled: boolean) {
     if (!enabled) return
     let alive = true
     const load = () =>
-      fetch(`/api/health/history?minutes=${SHIFT_MIN}`)
+      fetch(`${API_BASE}/api/health/history?minutes=${SHIFT_MIN}`)
         .then((r) => r.json())
         .then((rows: { ts: number; overall: number }[]) => {
           if (!alive || !rows.length) return
@@ -178,7 +178,7 @@ export function useRul(enabled: boolean) {
     if (!enabled) return
     let alive = true
     const load = () =>
-      fetch('/api/rul?minutes=30')
+      fetch(`${API_BASE}/api/rul?minutes=30`)
         .then((r) => r.json())
         .then((d) => alive && setRul(d))
         .catch(() => {})

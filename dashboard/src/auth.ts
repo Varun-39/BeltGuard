@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { API_BASE } from './config.ts'
 
 /** Google sign-in, via Google Identity Services -- no auth backend of our
  *  own to run. Client-side only: the ID token's payload is decoded for a
@@ -75,7 +76,7 @@ function saveUser(u: GoogleUser | null) {
  *  reached by following the QR in the first place. */
 export async function createPair(user: GoogleUser): Promise<string | null> {
   try {
-    const r = await fetch('/api/pair', {
+    const r = await fetch(`${API_BASE}/api/pair`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(user),
     })
     return r.ok ? (await r.json()).token : null
@@ -83,7 +84,7 @@ export async function createPair(user: GoogleUser): Promise<string | null> {
 }
 async function redeemPair(token: string): Promise<GoogleUser | null> {
   try {
-    const r = await fetch(`/api/pair/${token}`)
+    const r = await fetch(`${API_BASE}/api/pair/${token}`)
     return r.ok ? await r.json() : null
   } catch { return null }
 }

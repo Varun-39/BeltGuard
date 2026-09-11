@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import secrets
 import time
 from collections import deque
@@ -201,9 +202,12 @@ async def lifespan(_app: FastAPI):
     client.on_connect, client.on_message = _on_connect, _on_message
     client.on_disconnect = _on_disconnect
     # Non-fatal: the API and its history endpoints stay useful with no broker,
-    # and paho reconnects on its own once one appears.
+    # and paho reconnects on its own once one appears. Host/port are env-
+    # configurable because a deployed backend (Railway) and its broker are
+    # not both "localhost" the way they are in local dev.
     with suppress(OSError):
-        client.connect_async("localhost", 1883, 60)
+        client.connect_async(os.environ.get("MQTT_HOST", "localhost"),
+                              int(os.environ.get("MQTT_PORT", "1883")), 60)
         client.loop_start()
 
     task = asyncio.create_task(_broadcast_loop())
@@ -215,7 +219,10 @@ async def lifespan(_app: FastAPI):
 
 app = FastAPI(title="Conveyor Belt Monitoring (SIH 26008)", lifespan=lifespan)
 app.add_middleware(
-    CORSMiddleware, allow_origins=["http://localhost:3000"],
+    # Comma-separated so one deployed frontend origin -- or several, e.g. a
+    # Vercel preview URL alongside the production one -- can be allowed
+    # without a code change.
+    CORSMiddleware, allow_origins=os.environ.get("CORS_ORIGINS", "http://localhost:3000").split(","),
     allow_methods=["*"], allow_headers=["*"],
 )
 

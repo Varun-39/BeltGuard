@@ -338,6 +338,40 @@ python -m scada_sim.modbus_server
 
 </details>
 
+### 8.1 Deployment
+
+The backend (FastAPI + broker + simulator) and the frontend (static Vite
+build) deploy to different kinds of host and are configured independently.
+
+**Backend -> Railway** (or any host that runs a long-lived process; a plain
+serverless function cannot hold the WebSocket or the broadcast loop open).
+`railway.json` at the repo root points the build at `backend/requirements.txt`
+-- the slim runtime set, not the root `requirements.txt`, which also pins the
+vision *training* stack (torch, onnxruntime-gpu, ultralytics, ...) and would
+fail to install on a plain host regardless (torch is pinned to a CUDA
+`+cu128` build only available from PyTorch's own package index, not PyPI).
+Environment variables:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `CORS_ORIGINS` | `http://localhost:3000` | Comma-separated allowed frontend origins |
+| `MQTT_HOST` / `MQTT_PORT` | `localhost` / `1883` | Where the broker lives |
+| `SMTP_*`, `ALERT_TO`, `ALERT_FROM` | unset | Alert email, see `backend/notify.py` |
+
+The broker and simulator are optional separate services on the same platform
+(same `backend/requirements.txt`, start commands `python infra/broker.py` and
+`python -m sensors_sim.run`) -- without them the deployed API still serves,
+just with no live readings, the same honest "no data yet" state the console
+already shows locally before `sensors_sim` is started.
+
+**Frontend -> Vercel.** Set the project's Root Directory to `dashboard`
+(framework preset "Vite" is auto-detected; no `vercel.json` needed -- this is
+a single-page app with no client-side routing to redirect). Set
+`VITE_API_BASE` to the deployed backend's URL (`dashboard/.env.example`) --
+without it the built app requests `/api/...` on its own Vercel origin, where
+nothing answers. `VITE_GOOGLE_CLIENT_ID`, if used, needs the Vercel domain
+added to that OAuth client's authorized origins.
+
 ---
 
 ## 9. Interfaces
